@@ -1,0 +1,24 @@
+{
+  "name": "stirling-engine-monitor",
+  "version": "1.0.0",
+  "description": "A simple Electron app for monitoring Stirling Engine temperature data with Chart.js",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": [
+    "electron",
+    "stirling-engine",
+    "chart.js",
+    "temperature-monitoring"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.0"
+  }
+}

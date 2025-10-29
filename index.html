@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stirling Engine Temperature Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔥 Stirling Engine Temperature Monitor</h1>
+            <p>Real-time temperature monitoring and data visualization</p>
+        </header>
+
+        <main>
+            <div class="chart-container">
+                <canvas id="temperatureChart"></canvas>
+            </div>
+
+            <div class="controls">
+                <button id="startButton" class="btn btn-start">Start Monitoring</button>
+                <button id="stopButton" class="btn btn-stop" disabled>Stop Monitoring</button>
+                <button id="clearButton" class="btn btn-clear">Clear Data</button>
+            </div>
+
+            <div class="status">
+                <div class="status-item">
+                    <span class="label">Status:</span>
+                    <span id="statusText" class="value">Ready</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Data Points:</span>
+                    <span id="dataCount" class="value">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Current Temp:</span>
+                    <span id="currentTemp" class="value">--°C</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Include Chart.js from CDN for simplicity -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Include our renderer script -->
+    <script src="renderer.js"></script>
+</body>
+</html>
