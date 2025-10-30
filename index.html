@@ -14,17 +14,79 @@
         </header>
 
         <main>
-            <div class="chart-container">
-                <canvas id="temperatureChart"></canvas>
+
+            <!-- System Status Banner (moved above charts) -->
+            <div id="systemStatusBanner" class="system-status-banner offline">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span class="status-text">SYSTEM OFFLINE</span>
+                </div>
+                <div class="status-details">
+                    <span id="systemStatusDetails">Looking for Stirling Engine device...</span>
+                </div>
             </div>
 
-            <div class="controls">
-                <button id="startButton" class="btn btn-start">Start Monitoring</button>
-                <button id="stopButton" class="btn btn-stop" disabled>Stop Monitoring</button>
-                <button id="clearButton" class="btn btn-clear">Clear Data</button>
+            <div class="charts-grid" style="margin-top: 20px;">
+                <!-- Left: Square P–V Chart -->
+                <div class="charts-left">
+                    <div id="pvContainer" class="chart-container">
+                        <canvas id="pvChart"></canvas>
+                        <div id="workDisplay" class="work-display">Work (P×V units): --</div>
+                    </div>
+                </div>
+                <!-- Right: Pressure/Volume Time Charts stacked -->
+                <div class="charts-right">
+                    <!-- Heater controls -->
+                    <div class="control-panel">
+                        <div class="control-row slider-row">
+                            <label for="heaterSlider">Heater Setpoint (°C)</label>
+                            <input id="heaterSlider" type="range" min="20" max="70" value="40" />
+                            <span id="heaterTip" class="slider-tip">40</span>
+                            <span id="heaterValue">40°C</span>
+                        </div>
+                        <div class="control-row">
+                            <button id="heaterToggle" class="btn btn-start">Heater ON</button>
+                        </div>
+                        <div class="control-row slider-row">
+                            <label for="auxSlider">Aux Output (%)</label>
+                            <input id="auxSlider" type="range" min="0" max="100" value="0" />
+                            <span id="auxTip" class="slider-tip">0</span>
+                            <span id="auxValue">0%</span>
+                        </div>
+                        <div class="control-row sweep-row">
+                            <label style="min-width:120px;">Sweep (0–100%)</label>
+                            <label for="sweepStep">Step:</label>
+                            <input id="sweepStep" type="number" min="1" max="20" value="5" class="num-input" />
+                            <label for="sweepInterval">Interval (ms):</label>
+                            <input id="sweepInterval" type="number" min="50" value="200" class="num-input" />
+                            <button id="sweepToggle" class="btn btn-connect">Start Sweep</button>
+                        </div>
+                    </div>
+                    <!-- Info tiles -->
+                    <div class="info-tiles">
+                        <div class="tile">
+                            <div class="tile-label">RPM</div>
+                            <div id="rpmValue" class="tile-value">--</div>
+                        </div>
+                        <div class="tile">
+                            <div class="tile-label">Temperature (°C)</div>
+                            <div id="tempValue" class="tile-value">--</div>
+                        </div>
+                    </div>
+                    <div id="pressureTimeContainer" class="chart-container">
+                        <canvas id="pressureTimeChart"></canvas>
+                    </div>
+                    <div id="volumeTimeContainer" class="chart-container">
+                        <canvas id="volumeTimeChart"></canvas>
+                    </div>
+                </div>
             </div>
 
-            <div class="status">
+                <div class="admin-top-right">
+                    <button id="adminButton" class="btn btn-admin">⚙️ Admin</button>
+                </div>
+
+            <div class="status" style="display:none;">
                 <div class="status-item">
                     <span class="label">Status:</span>
                     <span id="statusText" class="value">Ready</span>
@@ -37,12 +99,19 @@
                     <span class="label">Current Temp:</span>
                     <span id="currentTemp" class="value">--°C</span>
                 </div>
+                <div class="status-item">
+                    <span class="label">Debug Mode:</span>
+                    <span id="debugStatus" class="value">OFF</span>
+                </div>
             </div>
+
         </main>
     </div>
 
-    <!-- Include Chart.js from CDN for simplicity -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Include Chart.js UMD build locally from node_modules for global Chart variable -->
+    <script src="node_modules/chart.js/dist/chart.umd.js"></script>
+    <!-- Include Stirling data parser -->
+    <script src="stirling-data-parser.js"></script>
     <!-- Include our renderer script -->
     <script src="renderer.js"></script>
 </body>

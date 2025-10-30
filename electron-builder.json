@@ -1,0 +1,28 @@
+{
+  "appId": "com.yourcompany.stirling-engine-monitor",
+  "productName": "Stirling Engine Monitor",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "**/*",
+    "!node_modules/chart.js/dist/chart.min.js",
+    "!dist/**/*",
+    "!*.md",
+    "!setup.js",
+    "!install.bat"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.ico"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "assets/icon.icns"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "assets/icon.png"
+  }
+}
+

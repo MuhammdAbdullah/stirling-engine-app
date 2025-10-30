@@ -19,6 +19,12 @@ E:\Thermo\Striling Engine\
 ├── renderer.js      # Renderer process with Chart.js
 ├── styles.css       # CSS styling
 ├── package.json     # Project dependencies
+├── setup.js         # Downloads Chart.js locally
+├── install.bat      # Windows installation script
+├── .gitignore       # Git ignore file
+├── lib/             # Local Chart.js library
+│   └── chart.min.js # Chart.js (downloaded locally)
+├── assets/          # App icons and images
 └── README.md        # This file
 ```
 
@@ -30,7 +36,14 @@ Make sure you have Node.js installed on your computer:
 - Download from: https://nodejs.org/
 - Choose the LTS (Long Term Support) version
 
-### Installation
+### Quick Installation (Windows)
+
+**Option 1: Automatic Setup**
+1. Double-click `install.bat`
+2. Wait for installation to complete
+3. Run `npm start`
+
+**Option 2: Manual Setup**
 
 1. **Open Command Prompt or PowerShell**
    - Press `Win + R`, type `cmd` or `powershell`, and press Enter
@@ -44,7 +57,11 @@ Make sure you have Node.js installed on your computer:
    ```bash
    npm install
    ```
-   This will install Electron and Chart.js automatically.
+
+4. **Download Chart.js locally (for offline use)**
+   ```bash
+   node setup.js
+   ```
 
 ### Running the Application
 
@@ -102,7 +119,8 @@ To connect to real temperature sensors, replace the simulation code in `renderer
 - Try running `npm start` from the correct directory
 
 **If the chart doesn't appear:**
-- Check your internet connection (Chart.js loads from CDN)
+- Make sure you ran `node setup.js` to download Chart.js locally
+- Check that `lib/chart.min.js` exists in your project folder
 - Open the developer tools (F12) to see any error messages
 
 **If buttons don't work:**

@@ -51,8 +51,108 @@ main {
     border: 2px solid #e9ecef;
 }
 
+/* Two-column layout: PV left, time charts right */
+.charts-grid {
+    display: flex;
+    gap: 20px;
+}
+
+.admin-top-right {
+    position: fixed;
+    top: 14px;
+    right: 20px;
+    z-index: 1000;
+}
+.charts-left {
+    flex: 0 0 440px; /* fixed column for square PV chart */
+}
+.charts-right {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.info-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.control-panel {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+#heaterSlider { width: 100%; }
+
+.slider-row { position: relative; }
+.slider-tip {
+    position: absolute;
+    top: -18px;
+    transform: translate(-50%, 0);
+    background: #343a40;
+    color: #fff;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.num-input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+}
+#heaterSlider { width: 100%; }
+.tile {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.tile-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 6px;
+}
+.tile-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #007bff;
+}
+.work-display {
+    margin-top: 10px;
+    font-weight: 600;
+    color: #495057;
+}
+
 #temperatureChart {
     max-height: 400px;
+}
+
+/* Fix chart canvas heights to prevent layout growth */
+#pvChart {
+    height: 400px !important; /* square handled by aspectRatio; fixed height stabilizes layout */
+}
+#pressureTimeChart, #volumeTimeChart {
+    height: 260px !important;
+}
+
+/* Ensure PV chart renders as a square by letting Chart.js control height via aspectRatio */
+#pvChart {
+    width: 100%;
+    height: auto;
+    display: block;
 }
 
 .controls {
@@ -112,6 +212,229 @@ main {
     background: #5a6268;
 }
 
+.btn-connect {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-connect:hover:not(:disabled) {
+    background: #138496;
+}
+
+.btn-admin {
+    background: #6f42c1;
+    color: white;
+}
+
+.btn-admin:hover:not(:disabled) {
+    background: #5a32a3;
+}
+
+.btn-admin-small {
+    background: #6f42c1;
+    color: white;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
+
+.btn-admin-small:hover:not(:disabled) {
+    background: #5a32a3;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    min-width: 60px;
+}
+
+/* System Status Banner Styles */
+.system-status-banner {
+    margin: 20px 0;
+    padding: 15px 20px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+.system-status-banner.offline {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+    border: 2px solid #dc3545;
+}
+
+.system-status-banner.online {
+    background: linear-gradient(135deg, #28a745, #218838);
+    color: white;
+    border: 2px solid #28a745;
+}
+
+.system-status-banner.connecting {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+    color: #212529;
+    border: 2px solid #ffc107;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.system-status-banner.offline .status-dot {
+    background-color: #fff;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.system-status-banner.online .status-dot {
+    background-color: #fff;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.system-status-banner.connecting .status-dot {
+    background-color: #212529;
+    box-shadow: 0 0 0 0 rgba(33, 37, 41, 0.7);
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+.status-text {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.status-details {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-align: right;
+}
+
+/* Debug Panel Styles */
+.debug-panel {
+    margin-top: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+    overflow: hidden;
+}
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #007bff;
+    color: white;
+}
+
+.debug-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.debug-tabs {
+    display: flex;
+    background: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.debug-tab {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #495057;
+    transition: all 0.3s ease;
+}
+
+.debug-tab:hover {
+    background: #dee2e6;
+}
+
+.debug-tab.active {
+    background: white;
+    color: #007bff;
+    border-bottom: 2px solid #007bff;
+}
+
+.debug-content {
+    padding: 20px;
+}
+
+.debug-tab-content {
+    display: none;
+}
+
+.debug-tab-content.active {
+    display: block;
+}
+
+.debug-tab-content h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 1.1rem;
+}
+
+.debug-display {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.debug-display::-webkit-scrollbar {
+    width: 8px;
+}
+
+.debug-display::-webkit-scrollbar-track {
+    background: #4a5568;
+    border-radius: 4px;
+}
+
+.debug-display::-webkit-scrollbar-thumb {
+    background: #718096;
+    border-radius: 4px;
+}
+
+.debug-display::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
 .status {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -169,5 +492,13 @@ main {
     
     .status {
         grid-template-columns: 1fr;
+    }
+
+    /* Stack charts vertically on small screens */
+    .charts-grid {
+        flex-direction: column;
+    }
+    .charts-left {
+        flex: 1 1 auto;
     }
 }

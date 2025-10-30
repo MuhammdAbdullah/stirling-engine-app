@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stirling Engine - Admin Panel</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-window {
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #6f42c1, #5a32a3);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .admin-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        
+        .admin-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        .debug-panel {
+            margin-top: 0;
+        }
+        
+        .debug-header {
+            background: #007bff;
+        }
+        
+        .admin-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .btn-admin-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        
+        .status-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .status-card h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .status-card .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Ensure tab content visibility is controlled by .active class */
+        .debug-tab-content { display: none; }
+        .debug-tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="admin-window">
+        <div class="admin-header">
+            <h1>⚙️ Stirling Engine Admin Panel</h1>
+            <p>Real-time data monitoring and system diagnostics</p>
+        </div>
+        
+        <div class="admin-controls">
+            <button id="clearAllBtn" class="btn btn-admin-small">Clear All Data</button>
+            <button id="exportDataBtn" class="btn btn-admin-small">Export Data</button>
+            <button id="refreshBtn" class="btn btn-admin-small">Refresh</button>
+        </div>
+        
+        <div class="status-overview">
+            <div class="status-card">
+                <h4>System Status</h4>
+                <div id="adminSystemStatus" class="value">OFFLINE</div>
+            </div>
+            <div class="status-card">
+                <h4>Data Packets</h4>
+                <div id="adminPacketCount" class="value">0</div>
+            </div>
+            <div class="status-card">
+                <h4>Data Rate</h4>
+                <div id="adminDataRate" class="value">0 pps</div>
+            </div>
+            <div class="status-card">
+                <h4>Last Update</h4>
+                <div id="adminLastUpdate" class="value">Never</div>
+            </div>
+        </div>
+        
+        <!-- Debug Panel -->
+        <div class="debug-panel">
+            <div class="debug-header">
+                <h3>🔍 System Diagnostics</h3>
+                <button id="clearDebugBtn" class="btn btn-small">Clear</button>
+            </div>
+            
+            <div class="debug-tabs">
+                <button class="debug-tab active" data-tab="raw">Raw Data</button>
+                <button class="debug-tab" data-tab="parsed">Parsed Data</button>
+                <button class="debug-tab" data-tab="processed">Processed Data</button>
+                <button class="debug-tab" data-tab="connection">Connection</button>
+                <button class="debug-tab" data-tab="stats">Statistics</button>
+            </div>
+            
+            <div class="debug-content">
+                <div id="rawDataTab" class="debug-tab-content active">
+                    <h4>Raw USB Data (Hex)</h4>
+                    <div id="rawDataDisplay" class="debug-display">No data received yet...</div>
+                </div>
+                
+                <div id="parsedDataTab" class="debug-tab-content">
+                    <h4>Parsed Stirling Engine Data</h4>
+                    <div id="parsedDataDisplay" class="debug-display">No parsed data yet...</div>
+                </div>
+                
+                <div id="processedDataTab" class="debug-tab-content">
+                    <h4>Processed Data Breakdown</h4>
+                    <div id="processedDataDisplay" class="debug-display">No processed data yet...</div>
+                </div>
+                
+                <div id="connectionTab" class="debug-tab-content">
+                    <h4>Connection Information</h4>
+                    <div id="connectionInfoDisplay" class="debug-display">No connection info yet...</div>
+                </div>
+                
+                <div id="statsTab" class="debug-tab-content">
+                    <h4>Data Statistics</h4>
+                    <div id="statsDisplay" class="debug-display">No statistics yet...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Stirling data parser -->
+    <script src="stirling-data-parser.js"></script>
+    <!-- Include admin script -->
+    <script src="admin.js"></script>
+</body>
+</html>
+
