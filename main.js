@@ -26,8 +26,8 @@ function createWindow() {
             contextIsolation: true
         },
         autoHideMenuBar: true,
-        icon: path.join(__dirname, 'assets/icon.png'), // Optional: add an icon
-        title: 'Stirling Engine Temperature Monitor'
+        icon: path.join(__dirname, 'assets/favicon.ico'), // App icon
+        title: 'Matrix Stirling Engine'
     });
 
     // Maximize the window on launch for best visibility
@@ -291,7 +291,8 @@ function createAdminWindow() {
             nodeIntegration: false,
             contextIsolation: true
         },
-        title: 'Admin'
+        icon: path.join(__dirname, 'assets/favicon.ico'),
+        title: 'Matrix Stirling Engine - Admin'
     });
     adminWindow.loadFile('admin.html');
     adminWindow.on('closed', function () { adminWindow = null; });

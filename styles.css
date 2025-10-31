@@ -1,4 +1,4 @@
-/* Basic styling for our Stirling Engine Monitor */
+/* Basic styling for Matrix Stirling Engine */
 
 * {
     margin: 0;
@@ -8,15 +8,16 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #000000;
     color: #333;
     min-height: 100vh;
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
-    padding: 20px;
+    padding: 20px 24px;
 }
 
 header {
@@ -24,23 +25,51 @@ header {
     margin-bottom: 30px;
     color: white;
 }
-
-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+.header-row {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* center content */
+    gap: 16px;
+    flex-wrap: wrap; /* allow wrap when narrow */
 }
 
-header p {
-    font-size: 1.2rem;
-    opacity: 0.9;
+.matrix-logo {
+    height: 40px;
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.header-logo {
+    height: auto;
+    width: auto;
+    max-height: 64px;
+    max-width: clamp(280px, 60vw, 900px);
+    object-fit: contain;
+}
+
+/* Prevent overlap on narrow screens: unfix Matrix logo and shrink */
+@media (max-width: 900px) {
+    .matrix-logo {
+        height: 28px;
+    }
+    .header-row {
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .header-logo {
+        max-height: 48px;
+        max-width: 80vw;
+    }
 }
 
 main {
-    background: white;
+    background: #333333;
     border-radius: 15px;
     padding: 30px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    width: 100%;
+    overflow: hidden;
 }
 
 .chart-container {
@@ -49,12 +78,19 @@ main {
     padding: 20px;
     margin-bottom: 30px;
     border: 2px solid #e9ecef;
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Two-column layout: PV left, time charts right */
+/* Two-column layout: PV left (square), time charts right that share height */
 .charts-grid {
-    display: flex;
+    --pv-col-width: clamp(320px, 35vw, 460px);
+    display: grid;
+    grid-template-columns: var(--pv-col-width) 1fr;
     gap: 20px;
+    align-items: stretch;
 }
 
 .admin-top-right {
@@ -62,15 +98,34 @@ main {
     top: 14px;
     right: 20px;
     z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
-.charts-left {
-    flex: 0 0 440px; /* fixed column for square PV chart */
+.theme-selector {
+    padding: 6px 12px;
+    border: 2px solid #007bff;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+.theme-selector:hover {
+    background: #f8f9fa;
+}
+.theme-selector:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+.charts-left { width: 100%; }
 .charts-right {
-    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-width: 0;
 }
 
 .info-tiles {
@@ -80,10 +135,36 @@ main {
 }
 
 .control-panel {
-    background: #f8f9fa;
+    background: #656464;
     border: 2px solid #e9ecef;
     border-radius: 10px;
     padding: 12px 16px;
+}
+.control-panel-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    align-items: start;
+}
+.control-panel-left {
+    display: flex;
+    flex-direction: column;
+}
+.control-panel-right {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.control-panel-right .tile {
+    padding: 8px 12px;
+    min-width: 120px;
+}
+.control-panel-right .tile-label {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+.control-panel-right .tile-value {
+    font-size: 1.2rem;
 }
 .control-row {
     display: flex;
@@ -91,7 +172,60 @@ main {
     gap: 10px;
     margin-bottom: 10px;
 }
-#heaterSlider { width: 100%; }
+#heaterSlider, #auxSlider { 
+    width: 100%; 
+    flex: 1;
+}
+
+/* Heater slider gradient theme - Blue to Orange to Red */
+#heaterSlider {
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+}
+
+#heaterSlider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: linear-gradient(to right, #007bff, #ff8800, #ff0000);
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+#heaterSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    margin-top: -8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#heaterSlider::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: linear-gradient(to right, #007bff, #ff8800, #ff0000);
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+#heaterSlider::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: none;
+}
+
+.slider-row label { min-width: 160px; }
 
 .slider-row { position: relative; }
 .slider-tip {
@@ -104,6 +238,12 @@ main {
     padding: 2px 6px;
     border-radius: 4px;
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.slider-row:hover .slider-tip,
+.slider-row.active .slider-tip {
+    opacity: 1;
 }
 
 .num-input {
@@ -112,7 +252,6 @@ main {
     border: 1px solid #ced4da;
     border-radius: 6px;
 }
-#heaterSlider { width: 100%; }
 .tile {
     background: white;
     border: 2px solid #e9ecef;
@@ -141,18 +280,34 @@ main {
 }
 
 /* Fix chart canvas heights to prevent layout growth */
-#pvChart {
-    height: 400px !important; /* square handled by aspectRatio; fixed height stabilizes layout */
-}
 #pressureTimeChart, #volumeTimeChart {
-    height: 260px !important;
+    height: 100% !important; /* each fills half of right column */
 }
 
-/* Ensure PV chart renders as a square by letting Chart.js control height via aspectRatio */
-#pvChart {
+/* Ensure canvases expand to their containers */
+#pvChart, #pressureTimeChart, #volumeTimeChart { width: 100%; display: block; }
+
+.control-panel, .info-tiles { width: 100%; max-width: 100%; overflow: hidden; }
+
+/* Square PV container using aspect-ratio; lets right column match height via flex stretch */
+.pv-square {
     width: 100%;
+    aspect-ratio: 1 / 1; /* square based on left column width */
     height: auto;
-    display: block;
+}
+
+/* Right column splits height equally between its two charts */
+.time-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+}
+.time-col .time-cell {
+    flex: 1 1 0;
+    min-height: 0;
+    height: 0; /* allows flex to divide available height equally */
+    overflow: hidden;
 }
 
 .controls {
@@ -186,12 +341,32 @@ main {
 }
 
 .btn-start {
-    background: #28a745;
-    color: white;
+    background: linear-gradient(45deg, #6c757d, #495057);
+    color: #fff;
+    border: none;
+    width: 150px;
+    height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-start:hover:not(:disabled) {
-    background: #218838;
+    background: linear-gradient(45deg, #5a6268, #3d4449);
+}
+
+/* Heater toggle active state (matches Heat Transfer theme) */
+#heaterToggle.active {
+    background: linear-gradient(45deg, #2ed573, #1e90ff);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(46, 213, 115, 0.4);
+}
+
+/* Heater toggle inactive state - make it clear when OFF */
+#heaterToggle:not(.active) {
+    background: #6c757d;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn-stop {
@@ -219,6 +394,32 @@ main {
 
 .btn-connect:hover:not(:disabled) {
     background: #138496;
+}
+
+/* Sweep button theme - purple/teal gradient when active */
+#sweepToggle {
+    background: #17a2b8;
+    color: white;
+}
+
+#sweepToggle:hover:not(:disabled) {
+    background: #138496;
+}
+
+#sweepToggle.active {
+    background: linear-gradient(45deg, #8e44ad, #17a2b8);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
+    animation: pulse-sweep 2s ease-in-out infinite;
+}
+
+@keyframes pulse-sweep {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(142, 68, 173, 0.7);
+    }
 }
 
 .btn-admin {
@@ -249,63 +450,37 @@ main {
 
 /* System Status Banner Styles */
 .system-status-banner {
-    margin: 20px 0;
-    padding: 15px 20px;
-    border-radius: 10px;
+    margin: 10px 0 10px 0; /* now sits below header */
+    padding: 10px 20px;
+    border-radius: 0; /* thin strip look */
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* center the text */
     align-items: center;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1.1rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: all 0.3s ease;
+    background: #333333;
+    color: #eeeeee;
+    border-bottom: 2px solid #444;
 }
 
 .system-status-banner.offline {
-    background: linear-gradient(135deg, #dc3545, #c82333);
-    color: white;
-    border: 2px solid #dc3545;
+    border-bottom-color: #ff4d4f;
+    color: #ff4d4f;
+    text-shadow: 0 0 8px rgba(255,77,79,0.6);
 }
 
 .system-status-banner.online {
-    background: linear-gradient(135deg, #28a745, #218838);
-    color: white;
-    border: 2px solid #28a745;
+    border-bottom-color: #28a745;
+    color: #28a745;
+    text-shadow: 0 0 8px rgba(40,167,69,0.6);
 }
 
 .system-status-banner.connecting {
-    background: linear-gradient(135deg, #ffc107, #e0a800);
-    color: #212529;
-    border: 2px solid #ffc107;
+    border-bottom-color: #ffc107;
+    color: #ffc107;
 }
 
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.status-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-}
-
-.system-status-banner.offline .status-dot {
-    background-color: #fff;
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
-}
-
-.system-status-banner.online .status-dot {
-    background-color: #fff;
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
-}
-
-.system-status-banner.connecting .status-dot {
-    background-color: #212529;
-    box-shadow: 0 0 0 0 rgba(33, 37, 41, 0.7);
-}
+/* remove dot/indicator in the new centered style */
 
 @keyframes pulse {
     0% {
@@ -501,4 +676,91 @@ main {
     .charts-left {
         flex: 1 1 auto;
     }
+}
+
+/* Password Modal Styles */
+.password-modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+}
+
+.password-modal.show {
+    display: flex;
+}
+
+.password-modal-content {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    min-width: 350px;
+    max-width: 500px;
+    text-align: center;
+}
+
+.password-modal-content h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.5rem;
+}
+
+.password-modal-content p {
+    margin: 0 0 20px 0;
+    color: #666;
+}
+
+.password-modal-content input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.password-modal-content input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+.password-modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.btn-cancel {
+    background: #6c757d;
+    color: white;
+    min-width: 100px;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background: #5a6268;
+}
+
+.btn-submit {
+    background: #28a745;
+    color: white;
+    min-width: 100px;
+}
+
+.btn-submit:hover:not(:disabled) {
+    background: #218838;
+}
+
+.password-error {
+    margin-top: 15px;
+    color: #dc3545;
+    font-weight: 600;
 }

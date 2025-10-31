@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🧪 Testing Stirling Engine Monitor Setup...\n');
+console.log('🧪 Testing Matrix Stirling Engine Setup...\n');
 
 // Check if required files exist
 const requiredFiles = [

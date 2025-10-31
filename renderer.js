@@ -26,7 +26,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const sweepStepEl = document.getElementById('sweepStep');
     const sweepIntervalEl = document.getElementById('sweepInterval');
     const sweepToggle = document.getElementById('sweepToggle');
+    const themeSelector = document.getElementById('themeSelector');
     let heaterOn = true;
+    let currentTheme = 'light';
     const chartCanvas = document.getElementById('temperatureChart');
     const pvCanvas = document.getElementById('pvChart');
     const pressureTimeCanvas = document.getElementById('pressureTimeChart');
@@ -37,7 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // System status elements
     const systemStatusBanner = document.getElementById('systemStatusBanner');
-    const systemStatusDetails = document.getElementById('systemStatusDetails');
     
     // Variables to store our data and chart
     let temperatureData = [];
@@ -104,13 +105,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 sendHeaterCommand();
             }, 150);
         });
+        // Show tip on hover with cursor position
+        heaterSlider.addEventListener('mousemove', function(e) {
+            var row = heaterSlider.closest('.slider-row');
+            if (row) {
+                row.classList.add('active');
+            }
+            updateSliderTipFromEvent(e);
+        });
+        heaterSlider.addEventListener('mouseleave', function(e) {
+            var row = heaterSlider.closest('.slider-row');
+            if (row) {
+                row.classList.remove('active');
+            }
+        });
     }
     if (heaterToggle) {
+        // reflect initial state
+        if (heaterOn) { try { heaterToggle.classList.add('active'); } catch(_){} }
         heaterToggle.addEventListener('click', function() {
             heaterOn = !heaterOn;
-            heaterToggle.textContent = heaterOn ? 'Heater ON' : 'Heater OFF';
+            heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
+            try { heaterToggle.classList.toggle('active', heaterOn); } catch(_){}
             sendHeaterCommand();
         });
+        // Set initial text based on state
+        heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
     }
 
     function sendHeaterCommand() {
@@ -132,6 +152,21 @@ document.addEventListener('DOMContentLoaded', function() {
         heaterTip.style.left = x + 'px';
         heaterTip.textContent = String(val);
     }
+    
+    function updateSliderTipFromEvent(e) {
+        if (!heaterSlider || !heaterTip) return;
+        var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
+        var rowRect = row.getBoundingClientRect();
+        var sliderRect = heaterSlider.getBoundingClientRect();
+        var mouseX = e.clientX - sliderRect.left;
+        var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
+        var min = parseInt(heaterSlider.min || 0);
+        var max = parseInt(heaterSlider.max || 100);
+        var val = Math.round(min + percent * (max - min));
+        var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
+        heaterTip.style.left = x + 'px';
+        heaterTip.textContent = String(val);
+    }
 
     // Aux slider events
     if (auxSlider && auxValue) {
@@ -146,6 +181,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 sendAuxCommand();
             }, 150);
         });
+        // Show tip on hover with cursor position
+        auxSlider.addEventListener('mousemove', function(e) {
+            var row = auxSlider.closest('.slider-row');
+            if (row) {
+                row.classList.add('active');
+            }
+            updateAuxTipFromEvent(e);
+        });
+        auxSlider.addEventListener('mouseleave', function(e) {
+            var row = auxSlider.closest('.slider-row');
+            if (row) {
+                row.classList.remove('active');
+            }
+        });
     }
 
     function updateAuxTip() {
@@ -157,6 +206,21 @@ document.addEventListener('DOMContentLoaded', function() {
         var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
         var rowRect = row.getBoundingClientRect();
         var sliderRect = auxSlider.getBoundingClientRect();
+        var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
+        auxTip.style.left = x + 'px';
+        auxTip.textContent = String(val);
+    }
+    
+    function updateAuxTipFromEvent(e) {
+        if (!auxSlider || !auxTip) return;
+        var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
+        var rowRect = row.getBoundingClientRect();
+        var sliderRect = auxSlider.getBoundingClientRect();
+        var mouseX = e.clientX - sliderRect.left;
+        var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
+        var min = parseInt(auxSlider.min || 0);
+        var max = parseInt(auxSlider.max || 100);
+        var val = Math.round(min + percent * (max - min));
         var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
         auxTip.style.left = x + 'px';
         auxTip.textContent = String(val);
@@ -179,11 +243,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sweepTimer) {
             clearInterval(sweepTimer); sweepTimer = null;
             sweepToggle.textContent = 'Start Sweep';
+            sweepToggle.classList.remove('active');
             return;
         }
         const step = Math.max(1, Math.min(20, parseInt(sweepStepEl ? sweepStepEl.value : 5)));
         const interval = Math.max(20, parseInt(sweepIntervalEl ? sweepIntervalEl.value : 200));
         sweepToggle.textContent = 'Stop Sweep';
+        sweepToggle.classList.add('active');
         sweepTimer = setInterval(function(){
             if (!auxSlider) return;
             let val = parseInt(auxSlider.value || 0);
@@ -197,7 +263,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }, interval);
     }
     if (sweepToggle) { sweepToggle.addEventListener('click', handleSweepToggle); }
-    adminButton.addEventListener('click', openAdminWindow);
+    if (adminButton) { adminButton.addEventListener('click', openAdminWindow); }
+    
+    // Theme selector
+    if (themeSelector) {
+        themeSelector.addEventListener('change', function(e) {
+            currentTheme = e.target.value;
+            updateChartTheme(currentTheme);
+        });
+        // Initialize theme on page load
+        setTimeout(function() {
+            updateChartTheme(currentTheme);
+        }, 100);
+    }
     
     // Set up USB serial communication listeners
     setupSerialListeners();
@@ -231,6 +309,58 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 1000);
     })();
+    
+    // Function to update chart theme
+    function updateChartTheme(theme) {
+        var gridColor, textColor, bgColor;
+        if (theme === 'dark') {
+            gridColor = 'rgba(255, 255, 255, 0.2)';
+            textColor = '#ffffff';
+            bgColor = '#1a1a1a';
+        } else {
+            gridColor = 'rgba(0, 0, 0, 0.1)';
+            textColor = '#333333';
+            bgColor = '#f8f9fa';
+        }
+        
+        if (pvChart) {
+            pvChart.options.scales.x.grid.color = gridColor;
+            pvChart.options.scales.y.grid.color = gridColor;
+            pvChart.options.scales.x.ticks.color = textColor;
+            pvChart.options.scales.y.ticks.color = textColor;
+            pvChart.options.scales.x.title.color = textColor;
+            pvChart.options.scales.y.title.color = textColor;
+            pvChart.options.plugins.legend.labels.color = textColor;
+            pvChart.update('none');
+        }
+        
+        if (pressureChart) {
+            pressureChart.options.scales.y.grid.color = gridColor;
+            pressureChart.options.scales.y.ticks.color = textColor;
+            pressureChart.options.scales.y.title.color = textColor;
+            pressureChart.options.plugins.legend.labels.color = textColor;
+            pressureChart.update('none');
+        }
+        
+        if (volumeChart) {
+            volumeChart.options.scales.y.grid.color = gridColor;
+            volumeChart.options.scales.y.ticks.color = textColor;
+            volumeChart.options.scales.y.title.color = textColor;
+            volumeChart.options.plugins.legend.labels.color = textColor;
+            volumeChart.update('none');
+        }
+        
+        var chartContainers = document.querySelectorAll('.chart-container');
+        for (var i = 0; i < chartContainers.length; i++) {
+            chartContainers[i].style.background = bgColor;
+            chartContainers[i].style.borderColor = theme === 'dark' ? '#444' : '#e9ecef';
+        }
+        
+        var workDisplay = document.getElementById('workDisplay');
+        if (workDisplay) {
+            workDisplay.style.color = textColor;
+        }
+    }
     
     // Function to create and configure the chart
     function initializeChart() {
@@ -759,34 +889,21 @@ document.addEventListener('DOMContentLoaded', function() {
             systemStatusBanner.className = 'system-status-banner online';
             systemStatusBanner.querySelector('.status-text').textContent = 'SYSTEM ONLINE';
             
-            const deviceInfo = status.deviceType || 'Stirling Engine';
-            const portInfo = status.port ? ` on ${status.port}` : '';
-            const vidPid = status.vid && status.pid ? ` (VID: 0x${status.vid}, PID: 0x${status.pid})` : '';
-            
-            systemStatusDetails.textContent = `${deviceInfo}${portInfo}${vidPid} - Ready for data`;
+            // Centered banner shows only the main text
         } else if (status.error) {
             // System is OFFLINE with error
             systemStatusBanner.className = 'system-status-banner offline';
             systemStatusBanner.querySelector('.status-text').textContent = 'SYSTEM OFFLINE';
-            systemStatusDetails.textContent = `Error: ${status.error}`;
         } else {
             // System is CONNECTING/SEARCHING
-            systemStatusBanner.className = 'system-status-banner connecting';
-            systemStatusBanner.querySelector('.status-text').textContent = 'CONNECTING...';
-            if (status.message) {
-                systemStatusDetails.textContent = status.message;
-            } else {
-                systemStatusDetails.textContent = 'Searching for Stirling Engine device (VID: 0x12BF, PID: 0x010B)...';
-            }
+            // Show OFFLINE until device is actually connected (no 'connecting' text)
+            systemStatusBanner.className = 'system-status-banner offline';
+            systemStatusBanner.querySelector('.status-text').textContent = 'SYSTEM OFFLINE';
         }
     }
     
     function updateSystemStatusWithData() {
-        if (isConnected && systemStatusBanner.classList.contains('online')) {
-            // Update to show data is actively flowing
-            const currentTime = new Date().toLocaleTimeString();
-            systemStatusDetails.textContent = `Data flowing normally - Last update: ${currentTime}`;
-        }
+        // No secondary text in the centered style
     }
     
     // Auto-connect function (called automatically by main process)
@@ -815,9 +932,56 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Admin Functions
     function openAdminWindow() {
-        if (window.electronAPI) {
-            window.electronAPI.openAdminWindow();
+        var passwordModal = document.getElementById('passwordModal');
+        var passwordInput = document.getElementById('passwordInput');
+        var passwordError = document.getElementById('passwordError');
+        
+        if (passwordModal) {
+            passwordModal.classList.add('show');
+            passwordInput.value = '';
+            passwordError.style.display = 'none';
+            passwordInput.focus();
         }
+    }
+    
+    // Password modal handlers
+    var passwordModal = document.getElementById('passwordModal');
+    var passwordInput = document.getElementById('passwordInput');
+    var passwordSubmitBtn = document.getElementById('passwordSubmitBtn');
+    var passwordCancelBtn = document.getElementById('passwordCancelBtn');
+    var passwordError = document.getElementById('passwordError');
+    
+    if (passwordSubmitBtn) {
+        passwordSubmitBtn.addEventListener('click', function() {
+            if (passwordInput.value === 'matrix123') {
+                passwordModal.classList.remove('show');
+                if (window.electronAPI) {
+                    window.electronAPI.openAdminWindow();
+                }
+            } else {
+                passwordError.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        });
+    }
+    
+    if (passwordCancelBtn) {
+        passwordCancelBtn.addEventListener('click', function() {
+            passwordModal.classList.remove('show');
+            passwordInput.value = '';
+            passwordError.style.display = 'none';
+        });
+    }
+    
+    if (passwordInput) {
+        passwordInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                passwordSubmitBtn.click();
+            } else if (e.key === 'Escape') {
+                passwordCancelBtn.click();
+            }
+        });
     }
     
     

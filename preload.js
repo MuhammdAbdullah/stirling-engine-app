@@ -1,4 +1,4 @@
-// Preload script for Stirling Engine Monitor
+// Preload script for Matrix Stirling Engine
 // This script runs in a secure context and exposes safe APIs to the renderer
 
 const { contextBridge, ipcRenderer } = require('electron');

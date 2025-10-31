@@ -3,41 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stirling Engine Temperature Monitor</title>
+    <title>Matrix Stirling Engine</title>
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="manifest" href="assets/site.webmanifest">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
+        <!-- System Status Banner moved to very top -->
         <header>
-            <h1>🔥 Stirling Engine Temperature Monitor</h1>
-            <p>Real-time temperature monitoring and data visualization</p>
+            <div class="header-row">
+                <img src="assets/Matrix 2024 White_Thermodynamics.png" alt="Matrix Thermodynamics" class="matrix-logo">
+                <img src="assets/Stirling Engine.png" alt="Stirling Engine" class="header-logo">
+            </div>
         </header>
+        <div id="systemStatusBanner" class="system-status-banner offline">
+            <span class="status-text">SYSTEM OFFLINE</span>
+        </div>
 
         <main>
-
-            <!-- System Status Banner (moved above charts) -->
-            <div id="systemStatusBanner" class="system-status-banner offline">
-                <div class="status-indicator">
-                    <div class="status-dot"></div>
-                    <span class="status-text">SYSTEM OFFLINE</span>
-                </div>
-                <div class="status-details">
-                    <span id="systemStatusDetails">Looking for Stirling Engine device...</span>
-                </div>
-            </div>
-
-            <div class="charts-grid" style="margin-top: 20px;">
-                <!-- Left: Square P–V Chart -->
-                <div class="charts-left">
-                    <div id="pvContainer" class="chart-container">
-                        <canvas id="pvChart"></canvas>
-                        <div id="workDisplay" class="work-display">Work (P×V units): --</div>
-                    </div>
-                </div>
-                <!-- Right: Pressure/Volume Time Charts stacked -->
-                <div class="charts-right">
-                    <!-- Heater controls -->
-                    <div class="control-panel">
+            <!-- Controls and tiles (always above graphs) -->
+            <div class="control-panel">
+                <div class="control-panel-grid">
+                    <div class="control-panel-left">
                         <div class="control-row slider-row">
                             <label for="heaterSlider">Heater Setpoint (°C)</label>
                             <input id="heaterSlider" type="range" min="20" max="70" value="40" />
@@ -62,27 +53,44 @@
                             <button id="sweepToggle" class="btn btn-connect">Start Sweep</button>
                         </div>
                     </div>
-                    <!-- Info tiles -->
-                    <div class="info-tiles">
-                        <div class="tile">
-                            <div class="tile-label">RPM</div>
-                            <div id="rpmValue" class="tile-value">--</div>
-                        </div>
+                    <div class="control-panel-right">
                         <div class="tile">
                             <div class="tile-label">Temperature (°C)</div>
                             <div id="tempValue" class="tile-value">--</div>
                         </div>
+                        <div class="tile">
+                            <div class="tile-label">RPM</div>
+                            <div id="rpmValue" class="tile-value">--</div>
+                        </div>
                     </div>
-                    <div id="pressureTimeContainer" class="chart-container">
+                </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top: 10px; align-items: stretch;">
+                <!-- Left: Square P–V Chart -->
+                <div class="charts-left">
+                    <div id="pvContainer" class="chart-container">
+                        <canvas id="pvChart"></canvas>
+                        <div id="workDisplay" class="work-display">Work (P×V units): --</div>
+                    </div>
+                </div>
+                <!-- Right: Pressure/Volume Time Charts stacked fill same combined height -->
+                <div class="charts-right time-col">
+                    <div id="pressureTimeContainer" class="chart-container time-cell">
                         <canvas id="pressureTimeChart"></canvas>
                     </div>
-                    <div id="volumeTimeContainer" class="chart-container">
+                    <div id="volumeTimeContainer" class="chart-container time-cell">
                         <canvas id="volumeTimeChart"></canvas>
                     </div>
                 </div>
             </div>
 
                 <div class="admin-top-right">
+                    <label for="themeSelector" style="color: white; margin-right: 10px;">Theme:</label>
+                    <select id="themeSelector" class="theme-selector">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
                     <button id="adminButton" class="btn btn-admin">⚙️ Admin</button>
                 </div>
 
@@ -106,6 +114,20 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="password-modal">
+        <div class="password-modal-content">
+            <h3>Admin Access</h3>
+            <p>Enter password to access admin panel:</p>
+            <input type="password" id="passwordInput" placeholder="Enter password" />
+            <div class="password-modal-buttons">
+                <button id="passwordCancelBtn" class="btn btn-cancel">Cancel</button>
+                <button id="passwordSubmitBtn" class="btn btn-submit">Submit</button>
+            </div>
+            <div id="passwordError" class="password-error" style="display:none;">Incorrect password!</div>
+        </div>
     </div>
 
     <!-- Include Chart.js UMD build locally from node_modules for global Chart variable -->

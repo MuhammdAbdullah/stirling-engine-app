@@ -1,6 +1,6 @@
 {
   "appId": "com.yourcompany.stirling-engine-monitor",
-  "productName": "Stirling Engine Monitor",
+  "productName": "Matrix Stirling Engine",
   "directories": {
     "output": "dist"
   },

@@ -1,6 +1,6 @@
-# Stirling Engine Temperature Monitor
+# Matrix Stirling Engine
 
-A simple Electron.js application for monitoring Stirling Engine temperature data with real-time Chart.js visualization.
+A simple Electron.js application for monitoring Matrix Stirling Engine temperature data with real-time Chart.js visualization.
 
 ## Features
 
