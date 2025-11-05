@@ -543,12 +543,24 @@ function startDataWorker() {
         // Receive parsed data from worker and forward to renderer
         dataWorker.on('message', function(parsedPackets) {
             try {
+                // parsedPackets should be an array from worker
+                if (!parsedPackets) return;
+                
+                // Ensure it's an array
+                const packets = Array.isArray(parsedPackets) ? parsedPackets : [parsedPackets];
+                
                 // Forward parsed data to renderer (non-blocking)
                 if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
                     try {
-                        mainWindow.webContents.send('stirling-data', parsedPackets);
+                        // Send packets array to renderer
+                        mainWindow.webContents.send('stirling-data', packets);
+                        // Debug log every 10th packet to avoid spam
+                        if (packets.length > 0 && Math.random() < 0.1) {
+                            console.log('[MAIN] Forwarded', packets.length, 'parsed packet(s) to renderer');
+                        }
                     } catch (e) {
                         // Window might be closing, ignore
+                        console.warn('[MAIN] Error sending to renderer:', e && e.message ? e.message : e);
                     }
                 }
             } catch (e) {

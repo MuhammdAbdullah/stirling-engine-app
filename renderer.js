@@ -872,6 +872,10 @@ function initializeUI() {
                         for (var j = 0; j < latestPVPackets.length; j++) {
                             updatePVChart(latestPVPackets[j]);
                         }
+                        // Debug log every 10th batch
+                        if (Math.random() < 0.1) {
+                            console.log('[UI] Processed', latestPVPackets.length, 'PV packet(s) in batch');
+                        }
                     }
                     
                     // Handle data for statistics (only process latest packet)
@@ -883,7 +887,13 @@ function initializeUI() {
                     }
                     
                     // Clear batch
+                    var processedCount = pendingDataPackets.length;
                     pendingDataPackets = [];
+                    
+                    // Debug log occasionally
+                    if (processedCount > 0 && Math.random() < 0.1) {
+                        console.log('[UI] Processed batch of', processedCount, 'packet(s)');
+                    }
                 }
                 
                 // Start batch processing interval (100ms = 10 updates per second)
@@ -900,6 +910,7 @@ function initializeUI() {
                 window.electronAPI.onStirlingData(function(event, parsedPackets) {
                     try {
                         // parsedPackets is already an array from the worker thread
+                        if (!parsedPackets) return;
                         if (!Array.isArray(parsedPackets)) {
                             parsedPackets = [parsedPackets];
                         }
@@ -910,6 +921,11 @@ function initializeUI() {
                             if (pkt && !pkt.__worker_error) {
                                 pendingDataPackets.push(pkt);
                             }
+                        }
+                        
+                        // Debug log every 10th packet
+                        if (parsedPackets.length > 0 && Math.random() < 0.1) {
+                            console.log('[UI] Received', parsedPackets.length, 'packet(s), total pending:', pendingDataPackets.length);
                         }
                         
                         // Limit batch size to prevent memory issues
