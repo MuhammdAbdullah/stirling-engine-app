@@ -760,7 +760,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             
             window.electronAPI.onConnectionStatus((event, status) => {
-                try { console.log('[UI] connection-status:', status); } catch (e) {}
+                try { 
+                    console.log('[UI] connection-status event received:', status);
+                    console.log('[UI] status.connected =', status.connected);
+                } catch (e) {
+                    console.error('[UI] Error in connection-status handler:', e);
+                }
                 var dbg = document.getElementById('debugStatus');
                 if (dbg) { dbg.textContent = 'ON'; }
                 updateConnectionStatus(status);
@@ -884,21 +889,39 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateSystemStatus(status) {
-        if (status.connected) {
-            // System is ONLINE
-            systemStatusBanner.className = 'system-status-banner online';
-            systemStatusBanner.querySelector('.status-text').textContent = 'SYSTEM ONLINE';
+        if (!systemStatusBanner) {
+            console.error('[UI] systemStatusBanner element not found!');
+            return;
+        }
+        
+        try {
+            const statusTextEl = systemStatusBanner.querySelector('.status-text');
+            if (!statusTextEl) {
+                console.error('[UI] .status-text element not found in banner!');
+                return;
+            }
             
-            // Centered banner shows only the main text
-        } else if (status.error) {
-            // System is OFFLINE with error
-            systemStatusBanner.className = 'system-status-banner offline';
-            systemStatusBanner.querySelector('.status-text').textContent = 'SYSTEM OFFLINE';
-        } else {
-            // System is CONNECTING/SEARCHING
-            // Show OFFLINE until device is actually connected (no 'connecting' text)
-            systemStatusBanner.className = 'system-status-banner offline';
-            systemStatusBanner.querySelector('.status-text').textContent = 'SYSTEM OFFLINE';
+            if (status.connected) {
+                // System is ONLINE
+                console.log('[UI] Updating status to ONLINE');
+                systemStatusBanner.className = 'system-status-banner online';
+                statusTextEl.textContent = 'SYSTEM ONLINE';
+                
+                // Centered banner shows only the main text
+            } else if (status.error) {
+                // System is OFFLINE with error
+                console.log('[UI] Updating status to OFFLINE (error:', status.error, ')');
+                systemStatusBanner.className = 'system-status-banner offline';
+                statusTextEl.textContent = 'SYSTEM OFFLINE';
+            } else {
+                // System is CONNECTING/SEARCHING
+                // Show OFFLINE until device is actually connected (no 'connecting' text)
+                console.log('[UI] Updating status to OFFLINE (connecting)');
+                systemStatusBanner.className = 'system-status-banner offline';
+                statusTextEl.textContent = 'SYSTEM OFFLINE';
+            }
+        } catch (e) {
+            console.error('[UI] Error updating system status:', e);
         }
     }
     
