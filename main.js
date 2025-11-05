@@ -8,6 +8,36 @@ const { SerialPort } = require('serialport');
 // Keep a global reference of the window object
 let mainWindow;
 
+// =============================
+// Global Error Handlers - Prevent JavaScript error dialogs
+// =============================
+
+// Catch unhandled promise rejections
+process.on('unhandledRejection', (error) => {
+    console.error('Unhandled Promise Rejection:', error);
+    // Don't show error dialog, just log it
+});
+
+// Catch uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Don't show error dialog, just log it
+    // The app will continue running
+});
+
+// Catch Electron's uncaught exceptions in renderer
+app.on('browser-window-created', (event, window) => {
+    window.webContents.on('crashed', () => {
+        console.error('Renderer process crashed');
+    });
+    window.webContents.on('unresponsive', () => {
+        console.warn('Renderer process became unresponsive');
+    });
+    window.webContents.on('responsive', () => {
+        console.log('Renderer process is responsive again');
+    });
+});
+
 // Disable hardware acceleration to avoid GPU process crashes on some Windows setups
 // This forces Chromium to render using CPU and is a common fix for errors like:
 // "GPU process exited unexpectedly" or command buffer failures
@@ -81,9 +111,13 @@ const TARGET_PRODUCT_ID = '010B';
 
 // Send connection status to renderer
 function sendConnectionStatus(connected, info) {
-    if (!mainWindow) return;
-    const payload = Object.assign({ connected: connected }, info || {});
-    mainWindow.webContents.send('connection-status', payload);
+    try {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        const payload = Object.assign({ connected: connected }, info || {});
+        mainWindow.webContents.send('connection-status', payload);
+    } catch (e) {
+        console.error('[SERIAL] Error sending connection status:', e && e.message ? e.message : e);
+    }
 }
 
 // Find the Stirling device by VID/PID
@@ -144,12 +178,20 @@ async function connectSerialAtPath(portPath) {
             port.on('error', function(err) {
                 console.error('[SERIAL] Serial error:', err && err.message ? err.message : err);
                 isSerialConnected = false;
+                currentSerialPort = null;
                 sendConnectionStatus(false, { error: err && err.message ? err.message : 'Serial error' });
+                // Make sure promise resolves even on error
+                if (!port.isOpen) {
+                    resolve({ success: false, error: err && err.message ? err.message : 'Serial error' });
+                }
             });
 
             port.on('close', function() {
                 console.warn('[SERIAL] Port closed');
                 isSerialConnected = false;
+                if (currentSerialPort === port) {
+                    currentSerialPort = null;
+                }
                 sendConnectionStatus(false, { error: 'Port closed' });
             });
 
@@ -158,29 +200,35 @@ async function connectSerialAtPath(portPath) {
                 // Forward raw data to any open windows (main and admin)
                 try {
                     const payload = Array.from(_data);
-                    if (mainWindow) {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.send('raw-data', payload);
                     }
                     if (adminWindow && !adminWindow.isDestroyed()) {
                         adminWindow.webContents.send('raw-data', payload);
                     }
-                } catch (_) {}
+                } catch (e) {
+                    // Silently ignore errors when sending data
+                    console.warn('[SERIAL] Error sending data to renderer:', e && e.message ? e.message : e);
+                }
             });
 
             port.open(function(err) {
                 if (err) {
-                    console.error('[SERIAL] Open failed:', err.message);
+                    console.error('[SERIAL] Open failed:', err && err.message ? err.message : err);
                     isSerialConnected = false;
-                    sendConnectionStatus(false, { error: err.message });
-                    resolve({ success: false, error: err.message });
+                    currentSerialPort = null;
+                    sendConnectionStatus(false, { error: err && err.message ? err.message : 'Open failed' });
+                    resolve({ success: false, error: err && err.message ? err.message : 'Open failed' });
                     return;
                 }
+                // If open succeeds, the 'open' event handler will resolve the promise
             });
         } catch (e) {
             console.error('[SERIAL] Open threw exception:', e && e.message ? e.message : e);
             isSerialConnected = false;
+            currentSerialPort = null;
             sendConnectionStatus(false, { error: e && e.message ? e.message : 'Open failed' });
-            resolve({ success: false, error: e.message });
+            resolve({ success: false, error: e && e.message ? e.message : 'Open failed' });
         }
     });
 }
