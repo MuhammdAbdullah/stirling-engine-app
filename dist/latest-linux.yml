@@ -1,0 +1,12 @@
+version: 1.0.0
+files:
+  - url: Matrix-Stirling-Engine-1.0.0.AppImage
+    sha512: 8uItHaeRs642YjlnbWpVVeL0yxJZ3BCCuUfxQJgyls2qqdmWGVjA1/fILhallPb2/Z+d4ULGuDXTu5DPYyrbwQ==
+    size: 104599511
+    blockMapSize: 110571
+  - url: stirling-engine-monitor_1.0.0_amd64.deb
+    sha512: 583OMAWjMGwruP8F3Af2On4MvFRMjMm1JsBiPWLuB15hWVwavuXWrC+MnLydDdqhxiO2LAWc9qD86hB1C43s+Q==
+    size: 72473706
+path: Matrix-Stirling-Engine-1.0.0.AppImage
+sha512: 8uItHaeRs642YjlnbWpVVeL0yxJZ3BCCuUfxQJgyls2qqdmWGVjA1/fILhallPb2/Z+d4ULGuDXTu5DPYyrbwQ==
+releaseDate: '2025-11-05T10:36:17.988Z'
