@@ -99,6 +99,10 @@ function initializeUI() {
     let lastPVUpdateMs = 0; // no longer used for auto-hide
     let lastChartDrawMs = 0; // throttle chart redraws to ~20 FPS
     
+    // Batch data packets for better performance
+    let pendingDataPackets = [];
+    let dataBatchInterval = null;
+    
     // USB Serial Communication variables
     let isConnected = false;
     let currentPort = null;
@@ -809,13 +813,8 @@ function initializeUI() {
     
     // USB Serial Communication Functions
     function setupSerialListeners() {
-        // Listen for Stirling data from main process
+        // Listen for connection status updates
         if (window.electronAPI) {
-            window.electronAPI.onStirlingData((event, data) => {
-                handleStirlingData(data);
-            });
-            
-            
             window.electronAPI.onConnectionStatus((event, status) => {
                 try { 
                     console.log('[UI] connection-status event received:', status);
@@ -888,8 +887,13 @@ function initializeUI() {
                 }
                 
                 // Start batch processing interval (100ms = 10 updates per second)
+                // Ensure variables are initialized
+                if (typeof pendingDataPackets === 'undefined') {
+                    pendingDataPackets = [];
+                }
                 if (!dataBatchInterval) {
                     dataBatchInterval = setInterval(processBatchedData, 100);
+                    console.log('[UI] Batch processing interval started');
                 }
                 
                 // Accumulate packets into batch
