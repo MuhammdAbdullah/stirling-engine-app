@@ -192,11 +192,36 @@ async function findStirlingDevicePort() {
 async function connectSerialAtPath(portPath) {
     return new Promise((resolve) => {
         try {
-            // Close any existing port first
-            if (currentSerialPort && currentSerialPort.isOpen) {
-                try { currentSerialPort.close(); } catch (_) {}
+            // Close any existing port first and wait a bit
+            if (currentSerialPort) {
+                try {
+                    if (currentSerialPort.isOpen) {
+                        currentSerialPort.close();
+                    }
+                } catch (e) {
+                    console.warn('[SERIAL] Error closing existing port:', e);
+                }
                 currentSerialPort = null;
+                isSerialConnected = false;
+                // Wait a moment for port to be released
+                setTimeout(function() {
+                    attemptConnection(portPath, resolve);
+                }, 500);
+            } else {
+                attemptConnection(portPath, resolve);
             }
+        } catch (e) {
+            console.error('[SERIAL] Connect setup error:', e && e.message ? e.message : e);
+            isSerialConnected = false;
+            isConnecting = false;
+            sendConnectionStatus(false, { error: e && e.message ? e.message : 'Connection setup failed' });
+            resolve({ success: false, error: e && e.message ? e.message : 'Connection setup failed' });
+        }
+    });
+}
+
+function attemptConnection(portPath, resolve) {
+    try {
 
             const port = new SerialPort({
                 path: portPath,
@@ -210,6 +235,7 @@ async function connectSerialAtPath(portPath) {
             port.on('open', function() {
                 console.log('[SERIAL] Connected to', portPath);
                 isSerialConnected = true;
+                isConnecting = false; // Clear connecting flag on success
                 currentSerialPort = port;
                 // Send connection status immediately
                 sendConnectionStatus(true, { port: portPath, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID, deviceType: 'Stirling Engine' });
@@ -269,9 +295,23 @@ async function connectSerialAtPath(portPath) {
                 if (err) {
                     console.error('[SERIAL] Open failed:', err && err.message ? err.message : err);
                     isSerialConnected = false;
+                    isConnecting = false; // Clear connecting flag on error
                     currentSerialPort = null;
-                    sendConnectionStatus(false, { error: err && err.message ? err.message : 'Open failed' });
-                    resolve({ success: false, error: err && err.message ? err.message : 'Open failed' });
+                    
+                    // Check if it's a lock error - wait longer before retry
+                    const errorMsg = err && err.message ? err.message : '';
+                    if (errorMsg.includes('lock') || errorMsg.includes('temporarily unavailable')) {
+                        console.log('[SERIAL] Port is locked, will retry after delay');
+                        sendConnectionStatus(false, { error: 'Port busy, retrying...' });
+                        // Wait longer before next attempt
+                        setTimeout(function() {
+                            isConnecting = false;
+                        }, 5000);
+                    } else {
+                        sendConnectionStatus(false, { error: errorMsg || 'Open failed' });
+                    }
+                    
+                    resolve({ success: false, error: errorMsg || 'Open failed' });
                     return;
                 }
                 // If open succeeds, the 'open' event handler will resolve the promise
@@ -435,19 +475,33 @@ ipcMain.handle('open-admin-window', async () => {
 });
 
 // Start periodic search until connected
+let isConnecting = false; // Prevent multiple simultaneous connection attempts
+
 function startAutoSearch() {
     if (searchIntervalId) return;
     searchIntervalId = setInterval(async function() {
-        if (isSerialConnected) {
+        if (isSerialConnected || isConnecting) {
             return;
         }
         const dev = await findStirlingDevicePort();
-        if (dev && !isSerialConnected) {
+        if (dev && !isSerialConnected && !isConnecting) {
+            isConnecting = true;
             console.log('[SERIAL] Attempting connection to', dev.path, '...');
             sendConnectionStatus(false, { message: `Attempting connection to ${dev.path}...`, port: dev.path, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID });
-            await connectSerialAtPath(dev.path);
+            try {
+                await connectSerialAtPath(dev.path);
+            } catch (e) {
+                console.error('[SERIAL] Connection attempt error:', e);
+            } finally {
+                // Reset connecting flag after a delay to allow retry
+                setTimeout(function() {
+                    if (!isSerialConnected) {
+                        isConnecting = false;
+                    }
+                }, 3000);
+            }
         }
-    }, 2000);
+    }, 3000); // Increased interval to 3 seconds to reduce conflicts
 }
 
 // Periodically send connection status to ensure UI stays updated
