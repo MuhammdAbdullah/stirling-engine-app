@@ -329,7 +329,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('[UI] Error polling connection status:', e);
             });
         }, 2000); // Poll every 2 seconds as backup
-        }, 1000);
     })();
     
     // Function to update chart theme
