@@ -131,24 +131,43 @@
     </div>
 
     <!-- Include Chart.js - try node_modules first, fallback to lib -->
-    <script src="node_modules/chart.js/dist/chart.umd.js" onerror="this.onerror=null; this.src='lib/chart.min.js';"></script>
-    <!-- Include Stirling data parser -->
-    <script src="stirling-data-parser.js"></script>
-    <!-- Include our renderer script - wait for Chart.js to be available -->
     <script>
-        // Wait for Chart.js to be available before loading renderer
-        function waitForChart() {
-            if (typeof Chart !== 'undefined') {
-                console.log('Chart.js is available, loading renderer...');
-                const script = document.createElement('script');
-                script.src = 'renderer.js';
-                document.body.appendChild(script);
-            } else {
-                console.log('Waiting for Chart.js...');
-                setTimeout(waitForChart, 100);
+        (function() {
+            const script1 = document.createElement('script');
+            script1.src = 'node_modules/chart.js/dist/chart.umd.js';
+            script1.onerror = function() {
+                console.log('Chart.js not in node_modules, trying lib folder...');
+                const script2 = document.createElement('script');
+                script2.src = 'lib/chart.min.js';
+                script2.onload = function() {
+                    console.log('Chart.js loaded from lib folder');
+                    loadRemainingScripts();
+                };
+                script2.onerror = function() {
+                    console.error('Failed to load Chart.js from both locations!');
+                    alert('Error: Chart.js library failed to load. The app may not work correctly.');
+                };
+                document.head.appendChild(script2);
+            };
+            script1.onload = function() {
+                console.log('Chart.js loaded from node_modules');
+                loadRemainingScripts();
+            };
+            document.head.appendChild(script1);
+            
+            function loadRemainingScripts() {
+                // Load Stirling data parser
+                const parserScript = document.createElement('script');
+                parserScript.src = 'stirling-data-parser.js';
+                parserScript.onload = function() {
+                    // Load renderer script
+                    const rendererScript = document.createElement('script');
+                    rendererScript.src = 'renderer.js';
+                    document.body.appendChild(rendererScript);
+                };
+                document.body.appendChild(parserScript);
             }
-        }
-        waitForChart();
+        })();
     </script>
 </body>
 </html>
