@@ -617,22 +617,38 @@ function initializeUI() {
 
     // Update P–V chart with a parsed packet
     function updatePVChart(parsed) {
-        if (!pvChart || !parsed) return;
+        if (!pvChart || !parsed) {
+            if (!pvChart) {
+                console.warn('[UI] pvChart not initialized, cannot update');
+            }
+            return;
+        }
         if (!parsed.pressureReadings || parsed.pressureReadings.length === 0 || !parsed.volumeReadings || parsed.volumeReadings.length === 0) {
             return; // only handle PV packets
         }
+        
         lastPVUpdateMs = Date.now();
         var n = Math.min(parsed.pressureReadings.length, parsed.volumeReadings.length);
+        
+        // Add points to the chart
         for (var i = 0; i < n; i++) {
             var volumeM3 = parsed.volumeReadings[i] * 1e-9; // convert mm^3 to m^3
             pvPoints.push({ x: volumeM3, y: parsed.pressureReadings[i] });
         }
+        
         // Keep only last 500 points (reduced from 1000 for better performance)
         if (pvPoints.length > 500) {
             pvPoints = pvPoints.slice(pvPoints.length - 500);
         }
-        // Throttle redraws aggressively to reduce lag (optimized for Linux)
-        pvChart.data.datasets[0].data = pvPoints;
+        
+        // Always update chart data, even if we don't redraw immediately
+        if (pvChart.data && pvChart.data.datasets && pvChart.data.datasets[0]) {
+            pvChart.data.datasets[0].data = pvPoints;
+        } else {
+            console.warn('[UI] Chart data structure not ready');
+            return;
+        }
+        
         var nowMs = Date.now();
         // Reduced update frequency to 10 FPS (100ms) for better performance
         if (nowMs - lastChartDrawMs > 100) {
@@ -643,7 +659,7 @@ function initializeUI() {
                 requestAnimationFrame(function() {
                     try {
                         // Use 'none' mode to skip animations for faster updates
-                        pvChart.update('none');
+                        if (pvChart) pvChart.update('none');
                         if (pressureChart) pressureChart.update('none');
                         if (volumeChart) volumeChart.update('none');
                     } catch (e) {
