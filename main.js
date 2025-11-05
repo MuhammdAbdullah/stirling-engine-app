@@ -131,8 +131,12 @@ const TARGET_PRODUCT_ID = '010B';
 // Send connection status to renderer
 function sendConnectionStatus(connected, info) {
     try {
-        if (!mainWindow || mainWindow.isDestroyed()) return;
+        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+            console.log('[SERIAL] Cannot send connection status - window not ready');
+            return;
+        }
         const payload = Object.assign({ connected: connected }, info || {});
+        console.log('[SERIAL] Sending connection-status:', payload);
         mainWindow.webContents.send('connection-status', payload);
     } catch (e) {
         console.error('[SERIAL] Error sending connection status:', e && e.message ? e.message : e);
@@ -224,11 +228,19 @@ async function connectSerialAtPath(portPath) {
                 // Forward raw data to any open windows (main and admin)
                 try {
                     const payload = Array.from(_data);
-                    if (mainWindow && !mainWindow.isDestroyed()) {
-                        mainWindow.webContents.send('raw-data', payload);
+                    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+                        try {
+                            mainWindow.webContents.send('raw-data', payload);
+                        } catch (e) {
+                            // Window might be closing, ignore
+                        }
                     }
-                    if (adminWindow && !adminWindow.isDestroyed()) {
-                        adminWindow.webContents.send('raw-data', payload);
+                    if (adminWindow && !adminWindow.isDestroyed() && !adminWindow.webContents.isDestroyed()) {
+                        try {
+                            adminWindow.webContents.send('raw-data', payload);
+                        } catch (e) {
+                            // Window might be closing, ignore
+                        }
                     }
                 } catch (e) {
                     // Silently ignore errors when sending data
