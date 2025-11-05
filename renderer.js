@@ -634,8 +634,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusText.textContent = 'Monitoring...';
         statusText.style.color = '#28a745';
         
-        startButton.disabled = true;
-        stopButton.disabled = false;
+        if (startButton) startButton.disabled = true;
+        if (stopButton) stopButton.disabled = false;
         
         // Generate temperature data every 2 seconds
         monitoringInterval = setInterval(function() {
@@ -656,8 +656,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusText.textContent = 'Stopped';
         statusText.style.color = '#dc3545';
         
-        startButton.disabled = false;
-        stopButton.disabled = true;
+        if (startButton) startButton.disabled = false;
+        if (stopButton) stopButton.disabled = true;
         
         if (monitoringInterval) {
             clearInterval(monitoringInterval);

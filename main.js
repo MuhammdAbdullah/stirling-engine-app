@@ -26,7 +26,7 @@ function createWindow() {
             contextIsolation: true
         },
         autoHideMenuBar: true,
-        icon: path.join(__dirname, 'assets/favicon.ico'), // App icon
+        icon: path.join(__dirname, 'assets/android-chrome-512x512.png'), // App icon (use PNG for Linux compatibility)
         title: 'Matrix Stirling Engine'
     });
 
@@ -233,6 +233,19 @@ ipcMain.handle('set-heater', async (event, value) => {
         await new Promise((resolve, reject) => {
             currentSerialPort.write(Buffer.from(bytes), (err) => err ? reject(err) : resolve());
         });
+        
+        // Send command data to admin window if it exists
+        if (adminWindow && !adminWindow.isDestroyed()) {
+            try {
+                adminWindow.webContents.send('sent-command', {
+                    type: 'heater',
+                    value: v,
+                    bytes: bytes,
+                    timestamp: new Date()
+                });
+            } catch (_) {}
+        }
+        
         return { success: true };
     } catch (e) {
         return { success: false, error: e && e.message ? e.message : 'Failed to send' };
@@ -250,6 +263,19 @@ ipcMain.handle('set-aux', async (event, value) => {
         await new Promise((resolve, reject) => {
             currentSerialPort.write(Buffer.from(bytes), (err) => err ? reject(err) : resolve());
         });
+        
+        // Send command data to admin window if it exists
+        if (adminWindow && !adminWindow.isDestroyed()) {
+            try {
+                adminWindow.webContents.send('sent-command', {
+                    type: 'aux',
+                    value: v,
+                    bytes: bytes,
+                    timestamp: new Date()
+                });
+            } catch (_) {}
+        }
+        
         return { success: true };
     } catch (e) {
         return { success: false, error: e && e.message ? e.message : 'Failed to send' };
@@ -291,7 +317,7 @@ function createAdminWindow() {
             nodeIntegration: false,
             contextIsolation: true
         },
-        icon: path.join(__dirname, 'assets/favicon.ico'),
+        icon: path.join(__dirname, 'assets/android-chrome-512x512.png'),
         title: 'Matrix Stirling Engine - Admin'
     });
     adminWindow.loadFile('admin.html');
