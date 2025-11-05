@@ -1032,3 +1032,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     
 });
+} // End of initializeApp function
