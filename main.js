@@ -324,7 +324,6 @@ function attemptConnection(portPath, resolve) {
             sendConnectionStatus(false, { error: e && e.message ? e.message : 'Open failed' });
             resolve({ success: false, error: e && e.message ? e.message : 'Open failed' });
         }
-    });
 }
 
 // Handle auto-connect request from renderer
