@@ -319,6 +319,7 @@ function attemptConnection(portPath, resolve) {
         } catch (e) {
             console.error('[SERIAL] Open threw exception:', e && e.message ? e.message : e);
             isSerialConnected = false;
+            isConnecting = false;
             currentSerialPort = null;
             sendConnectionStatus(false, { error: e && e.message ? e.message : 'Open failed' });
             resolve({ success: false, error: e && e.message ? e.message : 'Open failed' });
