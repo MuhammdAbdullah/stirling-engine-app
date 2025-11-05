@@ -130,11 +130,25 @@
         </div>
     </div>
 
-    <!-- Include Chart.js locally from lib folder for global Chart variable -->
-    <script src="lib/chart.min.js"></script>
+    <!-- Include Chart.js - try node_modules first, fallback to lib -->
+    <script src="node_modules/chart.js/dist/chart.umd.js" onerror="this.onerror=null; this.src='lib/chart.min.js';"></script>
     <!-- Include Stirling data parser -->
     <script src="stirling-data-parser.js"></script>
-    <!-- Include our renderer script -->
-    <script src="renderer.js"></script>
+    <!-- Include our renderer script - wait for Chart.js to be available -->
+    <script>
+        // Wait for Chart.js to be available before loading renderer
+        function waitForChart() {
+            if (typeof Chart !== 'undefined') {
+                console.log('Chart.js is available, loading renderer...');
+                const script = document.createElement('script');
+                script.src = 'renderer.js';
+                document.body.appendChild(script);
+            } else {
+                console.log('Waiting for Chart.js...');
+                setTimeout(waitForChart, 100);
+            }
+        }
+        waitForChart();
+    </script>
 </body>
 </html>

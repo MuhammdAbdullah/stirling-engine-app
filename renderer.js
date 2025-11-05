@@ -1,6 +1,29 @@
 // This is the renderer process file
 // It handles the user interface and Chart.js integration
 
+// Ensure Chart.js is available before proceeding
+if (typeof Chart === 'undefined') {
+    console.error('Chart.js is not loaded! Waiting...');
+    // Wait for Chart.js
+    let attempts = 0;
+    const checkChart = setInterval(function() {
+        attempts++;
+        if (typeof Chart !== 'undefined') {
+            clearInterval(checkChart);
+            console.log('Chart.js is now available');
+            initializeApp();
+        } else if (attempts > 50) {
+            clearInterval(checkChart);
+            console.error('Chart.js failed to load after 5 seconds!');
+            alert('Error: Chart.js library failed to load. Please refresh the page.');
+        }
+    }, 100);
+} else {
+    // Chart.js is already available
+    initializeApp();
+}
+
+function initializeApp() {
 // Wait for the page to load before running our code
 document.addEventListener('DOMContentLoaded', function() {
     
