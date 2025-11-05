@@ -313,23 +313,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Periodically refresh connection status for a short time in case we missed events
+    // Periodically refresh connection status continuously to catch any missed events
     (function(){
-        var attempts = 0;
-        var maxAttempts = 20; // ~20 seconds
         var timerId = setInterval(function(){
-            attempts += 1;
-            if (isConnected || !window.electronAPI || !window.electronAPI.getConnectionStatus) {
-                clearInterval(timerId);
+            if (!window.electronAPI || !window.electronAPI.getConnectionStatus) {
                 return;
             }
             window.electronAPI.getConnectionStatus().then(function(status){
-                try { console.log('[UI] polled connection-status:', status); } catch (e) {}
+                try { 
+                    console.log('[UI] polled connection-status:', status);
+                    console.log('[UI] polled status.connected =', status.connected);
+                } catch (e) {}
                 updateConnectionStatus(status);
-            }).catch(function(_){});
-            if (attempts >= maxAttempts) {
-                clearInterval(timerId);
-            }
+            }).catch(function(e){
+                console.error('[UI] Error polling connection status:', e);
+            });
+        }, 2000); // Poll every 2 seconds as backup
         }, 1000);
     })();
     
