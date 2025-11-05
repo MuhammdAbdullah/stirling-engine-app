@@ -623,21 +623,22 @@ function initializeUI() {
             var volumeM3 = parsed.volumeReadings[i] * 1e-9; // convert mm^3 to m^3
             pvPoints.push({ x: volumeM3, y: parsed.pressureReadings[i] });
         }
-        // Keep only last 1000 points
-        if (pvPoints.length > 1000) {
-            pvPoints = pvPoints.slice(pvPoints.length - 1000);
+        // Keep only last 500 points (reduced from 1000 for better performance)
+        if (pvPoints.length > 500) {
+            pvPoints = pvPoints.slice(pvPoints.length - 500);
         }
-        // Throttle redraws to avoid UI backlog at high data rates (optimized for Linux)
+        // Throttle redraws aggressively to reduce lag (optimized for Linux)
         pvChart.data.datasets[0].data = pvPoints;
         var nowMs = Date.now();
-        // Use requestAnimationFrame for smoother updates on Linux
-        if (nowMs - lastChartDrawMs > 33) { // ~30 FPS max for smoother performance
+        // Reduced update frequency to 10 FPS (100ms) for better performance
+        if (nowMs - lastChartDrawMs > 100) {
             lastChartDrawMs = nowMs;
             // Batch chart updates using requestAnimationFrame for better performance
             if (!chartUpdatePending) {
                 chartUpdatePending = true;
                 requestAnimationFrame(function() {
                     try {
+                        // Use 'none' mode to skip animations for faster updates
                         pvChart.update('none');
                         if (pressureChart) pressureChart.update('none');
                         if (volumeChart) volumeChart.update('none');
@@ -649,12 +650,16 @@ function initializeUI() {
             }
         }
 
-        // Compute work via polygon area (shoelace) in data units
-        try {
-            const work = computePolygonArea(pvPoints);
-            var wd = document.getElementById('workDisplay');
-            if (wd) { wd.textContent = 'Work (P×V units): ' + work.toFixed(2); }
-        } catch (_) {}
+        // Compute work via polygon area (shoelace) - only update every 500ms to reduce lag
+        var nowMs = Date.now();
+        if (nowMs - lastPVUpdateMs > 500) {
+            lastPVUpdateMs = nowMs;
+            try {
+                const work = computePolygonArea(pvPoints);
+                var wd = document.getElementById('workDisplay');
+                if (wd) { wd.textContent = 'Work (P×V units): ' + work.toFixed(2); }
+            } catch (_) {}
+        }
 
         // Time series updates (one reading per PV packet) - hide x-axis labels
         pressureTimeLabels.push('');
@@ -665,9 +670,9 @@ function initializeUI() {
         if (parsed.volumeReadings.length > 0) {
             volumeTimeValues.push(parsed.volumeReadings[0]);
         }
-        // Keep last 150 samples
-        if (pressureTimeLabels.length > 150) { pressureTimeLabels.shift(); pressureTimeValues.shift(); }
-        if (volumeTimeLabels.length > 150) { volumeTimeLabels.shift(); volumeTimeValues.shift(); }
+        // Keep last 100 samples (reduced for better performance)
+        if (pressureTimeLabels.length > 100) { pressureTimeLabels.shift(); pressureTimeValues.shift(); }
+        if (volumeTimeLabels.length > 100) { volumeTimeLabels.shift(); volumeTimeValues.shift(); }
         // Chart updates handled by throttled block above
     }
 
@@ -824,8 +829,70 @@ function initializeUI() {
             });
 
             // Listen for parsed data from worker thread (processed on separate CPU core)
-            // This is faster because parsing happens in worker thread, not on UI thread
+            // Batch packets together to reduce UI lag on Linux
             if (window.electronAPI.onStirlingData) {
+                // Process batched data packets every 100ms (10 times per second)
+                function processBatchedData() {
+                    if (pendingDataPackets.length === 0) return;
+                    
+                    // Get latest values for immediate display
+                    var latestRPM = null;
+                    var latestTemp = null;
+                    var latestPVPackets = [];
+                    
+                    // Process all pending packets
+                    for (var i = 0; i < pendingDataPackets.length; i++) {
+                        var pkt = pendingDataPackets[i];
+                        if (pkt && !pkt.__worker_error) {
+                            // Collect latest RPM and temp
+                            if (typeof pkt.rpm === 'number') {
+                                latestRPM = pkt.rpm;
+                            }
+                            if (typeof pkt.heaterTemperature === 'number') {
+                                latestTemp = pkt.heaterTemperature;
+                            }
+                            // Collect PV packets for batch chart update
+                            if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 && 
+                                Array.isArray(pkt.volumeReadings) && pkt.volumeReadings.length > 0) {
+                                latestPVPackets.push(pkt);
+                            }
+                        }
+                    }
+                    
+                    // Update displays with latest values (only once per batch)
+                    if (latestRPM !== null && rpmValueEl) {
+                        rpmValueEl.textContent = String(latestRPM);
+                    }
+                    if (latestTemp !== null && tempValueEl) {
+                        tempValueEl.textContent = String(latestTemp);
+                    }
+                    
+                    // Batch update PV chart (only once per batch)
+                    if (latestPVPackets.length > 0) {
+                        // Process all PV packets together
+                        for (var j = 0; j < latestPVPackets.length; j++) {
+                            updatePVChart(latestPVPackets[j]);
+                        }
+                    }
+                    
+                    // Handle data for statistics (only process latest packet)
+                    if (pendingDataPackets.length > 0) {
+                        var lastPacket = pendingDataPackets[pendingDataPackets.length - 1];
+                        if (lastPacket && !lastPacket.__worker_error) {
+                            handleStirlingData([lastPacket]);
+                        }
+                    }
+                    
+                    // Clear batch
+                    pendingDataPackets = [];
+                }
+                
+                // Start batch processing interval (100ms = 10 updates per second)
+                if (!dataBatchInterval) {
+                    dataBatchInterval = setInterval(processBatchedData, 100);
+                }
+                
+                // Accumulate packets into batch
                 window.electronAPI.onStirlingData(function(event, parsedPackets) {
                     try {
                         // parsedPackets is already an array from the worker thread
@@ -833,27 +900,21 @@ function initializeUI() {
                             parsedPackets = [parsedPackets];
                         }
                         
+                        // Add to batch instead of processing immediately
                         for (var i = 0; i < parsedPackets.length; i++) {
                             var pkt = parsedPackets[i];
                             if (pkt && !pkt.__worker_error) {
-                                // Update PV chart if we have pressure and volume data
-                                if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 && Array.isArray(pkt.volumeReadings) && pkt.volumeReadings.length > 0) {
-                                    updatePVChart(pkt);
-                                }
-                                // Update RPM display
-                                if (typeof pkt.rpm === 'number' && rpmValueEl) {
-                                    rpmValueEl.textContent = String(pkt.rpm);
-                                }
-                                // Update temperature display
-                                if (typeof pkt.heaterTemperature === 'number' && tempValueEl) {
-                                    tempValueEl.textContent = String(pkt.heaterTemperature);
-                                }
-                                // Handle full data packet
-                                handleStirlingData([pkt]);
+                                pendingDataPackets.push(pkt);
                             }
                         }
+                        
+                        // Limit batch size to prevent memory issues
+                        if (pendingDataPackets.length > 50) {
+                            // Keep only latest 50 packets
+                            pendingDataPackets = pendingDataPackets.slice(-50);
+                        }
                     } catch (e) {
-                        console.warn('[UI] Error processing parsed data:', e);
+                        console.warn('[UI] Error batching parsed data:', e);
                     }
                 });
             }
@@ -896,8 +957,8 @@ function initializeUI() {
                 heaterTempData.push(parsedData.heaterTemperature);
             }
             
-            // Keep only last 50 data points
-            if (pressureData.length > 50) {
+            // Keep only last 30 data points (reduced for better performance)
+            if (pressureData.length > 30) {
                 pressureData.shift();
                 volumeData.shift();
                 rpmData.shift();
