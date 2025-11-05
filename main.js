@@ -78,17 +78,34 @@ function createWindow() {
 
     // Send connection status once window is ready to receive messages
     mainWindow.webContents.once('did-finish-load', function() {
+        console.log('[MAIN] Window finished loading, sending initial connection status');
         // Wait a moment for renderer to set up listeners, then send current status
         setTimeout(function() {
             if (isSerialConnected && currentSerialPort) {
+                console.log('[MAIN] Sending initial connected status');
                 sendConnectionStatus(true, {
                     port: currentSerialPort.path,
                     vid: TARGET_VENDOR_ID,
                     pid: TARGET_PRODUCT_ID,
                     deviceType: 'Stirling Engine'
                 });
+            } else {
+                console.log('[MAIN] Sending initial disconnected status');
+                sendConnectionStatus(false, { message: 'Searching for device...' });
             }
-        }, 500);
+            // Also send it again after a longer delay to ensure it's received
+            setTimeout(function() {
+                if (isSerialConnected && currentSerialPort) {
+                    console.log('[MAIN] Sending delayed connected status');
+                    sendConnectionStatus(true, {
+                        port: currentSerialPort.path,
+                        vid: TARGET_VENDOR_ID,
+                        pid: TARGET_PRODUCT_ID,
+                        deviceType: 'Stirling Engine'
+                    });
+                }
+            }, 2000);
+        }, 1000);
     });
 
     // Emitted when the window is closed
@@ -433,6 +450,29 @@ function startAutoSearch() {
     }, 2000);
 }
 
+// Periodically send connection status to ensure UI stays updated
+let statusUpdateInterval = null;
+
+function startStatusUpdates() {
+    if (statusUpdateInterval) return;
+    statusUpdateInterval = setInterval(function() {
+        if (isSerialConnected && currentSerialPort) {
+            sendConnectionStatus(true, {
+                port: currentSerialPort.path,
+                vid: TARGET_VENDOR_ID,
+                pid: TARGET_PRODUCT_ID,
+                deviceType: 'Stirling Engine'
+            });
+        } else {
+            sendConnectionStatus(false, { message: 'Searching for device...' });
+        }
+    }, 3000); // Send status every 3 seconds
+}
+
 app.whenReady().then(function() {
     startAutoSearch();
+    // Start periodic status updates after a delay to ensure window is ready
+    setTimeout(function() {
+        startStatusUpdates();
+    }, 2000);
 });
