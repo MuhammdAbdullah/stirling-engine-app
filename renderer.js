@@ -86,6 +86,10 @@ function initializeUI() {
     let pressureChart = null;
     let volumeChart = null;
     let pvPoints = [];
+    
+    // Chart update throttling for better performance
+    let chartUpdatePending = false;
+    let pendingChartUpdate = null;
     let pressureTimeLabels = [];
     let pressureTimeValues = [];
     let volumeTimeLabels = [];
@@ -623,14 +627,26 @@ function initializeUI() {
         if (pvPoints.length > 1000) {
             pvPoints = pvPoints.slice(pvPoints.length - 1000);
         }
-        // Throttle redraws to avoid UI backlog at high data rates
+        // Throttle redraws to avoid UI backlog at high data rates (optimized for Linux)
         pvChart.data.datasets[0].data = pvPoints;
         var nowMs = Date.now();
-        if (nowMs - lastChartDrawMs > 50) { // ~20 FPS max
+        // Use requestAnimationFrame for smoother updates on Linux
+        if (nowMs - lastChartDrawMs > 33) { // ~30 FPS max for smoother performance
             lastChartDrawMs = nowMs;
-            pvChart.update('none');
-            if (pressureChart) pressureChart.update('none');
-            if (volumeChart) volumeChart.update('none');
+            // Batch chart updates using requestAnimationFrame for better performance
+            if (!chartUpdatePending) {
+                chartUpdatePending = true;
+                requestAnimationFrame(function() {
+                    try {
+                        pvChart.update('none');
+                        if (pressureChart) pressureChart.update('none');
+                        if (volumeChart) volumeChart.update('none');
+                    } catch (e) {
+                        console.warn('[UI] Chart update error:', e);
+                    }
+                    chartUpdatePending = false;
+                });
+            }
         }
 
         // Compute work via polygon area (shoelace) in data units
@@ -807,28 +823,46 @@ function initializeUI() {
                 updateConnectionStatus(status);
             });
 
-            // Also listen for raw data and parse here for PV chart
-            if (window.electronAPI.onRawData && typeof StirlingDataParser !== 'undefined') {
-                var parser = new StirlingDataParser();
-                window.electronAPI.onRawData(function(event, bytes) {
+            // Listen for parsed data from worker thread (processed on separate CPU core)
+            // This is faster because parsing happens in worker thread, not on UI thread
+            if (window.electronAPI.onStirlingData) {
+                window.electronAPI.onStirlingData(function(event, parsedPackets) {
                     try {
-                        var dataArr = Array.isArray(bytes) ? bytes : (bytes instanceof Uint8Array ? Array.from(bytes) : Array.from(new Uint8Array(bytes)));
-                        var parsedPackets = parser.processData(dataArr);
+                        // parsedPackets is already an array from the worker thread
+                        if (!Array.isArray(parsedPackets)) {
+                            parsedPackets = [parsedPackets];
+                        }
+                        
                         for (var i = 0; i < parsedPackets.length; i++) {
                             var pkt = parsedPackets[i];
-                            if (pkt) {
+                            if (pkt && !pkt.__worker_error) {
+                                // Update PV chart if we have pressure and volume data
                                 if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 && Array.isArray(pkt.volumeReadings) && pkt.volumeReadings.length > 0) {
                                     updatePVChart(pkt);
                                 }
+                                // Update RPM display
                                 if (typeof pkt.rpm === 'number' && rpmValueEl) {
                                     rpmValueEl.textContent = String(pkt.rpm);
                                 }
+                                // Update temperature display
                                 if (typeof pkt.heaterTemperature === 'number' && tempValueEl) {
                                     tempValueEl.textContent = String(pkt.heaterTemperature);
                                 }
+                                // Handle full data packet
+                                handleStirlingData([pkt]);
                             }
                         }
-                    } catch (_) {}
+                    } catch (e) {
+                        console.warn('[UI] Error processing parsed data:', e);
+                    }
+                });
+            }
+            
+            // Keep raw data listener for admin window if needed (fallback)
+            if (window.electronAPI.onRawData) {
+                window.electronAPI.onRawData(function(event, bytes) {
+                    // Raw data processing moved to worker thread for better performance
+                    // This listener can be used for admin/debugging purposes
                 });
             }
         }
@@ -1045,3 +1079,4 @@ function initializeUI() {
     
     console.log('[UI] UI initialization complete');
 } // End of initializeUI function
+

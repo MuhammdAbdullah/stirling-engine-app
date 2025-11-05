@@ -4,9 +4,13 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
+const { Worker } = require('worker_threads');
 
 // Keep a global reference of the window object
 let mainWindow;
+
+// Data processing worker thread (runs on separate CPU core for better performance)
+let dataWorker = null;
 
 // =============================
 // Global Error Handlers - Prevent JavaScript error dialogs
@@ -266,18 +270,21 @@ function attemptConnection(portPath, resolve) {
                 sendConnectionStatus(false, { error: 'Port closed' });
             });
 
-            // Optional: read data and forward raw bytes if needed later
+            // Process data on a separate worker thread for better performance
             port.on('data', function(_data) {
-                // Forward raw data to any open windows (main and admin)
                 try {
                     const payload = Array.from(_data);
-                    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+                    
+                    // Send raw data to worker thread for parsing (non-blocking)
+                    if (dataWorker) {
                         try {
-                            mainWindow.webContents.send('raw-data', payload);
+                            dataWorker.postMessage(payload);
                         } catch (e) {
-                            // Window might be closing, ignore
+                            console.warn('[SERIAL] Error sending data to worker:', e && e.message ? e.message : e);
                         }
                     }
+                    
+                    // Also forward raw data to admin window if needed
                     if (adminWindow && !adminWindow.isDestroyed() && !adminWindow.webContents.isDestroyed()) {
                         try {
                             adminWindow.webContents.send('raw-data', payload);
@@ -287,7 +294,7 @@ function attemptConnection(portPath, resolve) {
                     }
                 } catch (e) {
                     // Silently ignore errors when sending data
-                    console.warn('[SERIAL] Error sending data to renderer:', e && e.message ? e.message : e);
+                    console.warn('[SERIAL] Error processing data:', e && e.message ? e.message : e);
                 }
             });
 
@@ -523,10 +530,67 @@ function startStatusUpdates() {
     }, 3000); // Send status every 3 seconds
 }
 
+// Initialize data processing worker thread
+function startDataWorker() {
+    if (dataWorker) {
+        return; // Worker already running
+    }
+    
+    try {
+        const workerPath = path.join(__dirname, 'data-worker.js');
+        dataWorker = new Worker(workerPath);
+        
+        // Receive parsed data from worker and forward to renderer
+        dataWorker.on('message', function(parsedPackets) {
+            try {
+                // Forward parsed data to renderer (non-blocking)
+                if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+                    try {
+                        mainWindow.webContents.send('stirling-data', parsedPackets);
+                    } catch (e) {
+                        // Window might be closing, ignore
+                    }
+                }
+            } catch (e) {
+                console.warn('[MAIN] Error forwarding parsed data:', e && e.message ? e.message : e);
+            }
+        });
+        
+        dataWorker.on('error', function(error) {
+            console.error('[MAIN] Data worker error:', error);
+        });
+        
+        dataWorker.on('exit', function(code) {
+            if (code !== 0) {
+                console.error('[MAIN] Data worker exited with code', code);
+            }
+            dataWorker = null;
+        });
+        
+        console.log('[MAIN] Data processing worker started on separate thread');
+    } catch (e) {
+        console.error('[MAIN] Failed to start data worker:', e);
+        dataWorker = null;
+    }
+}
+
 app.whenReady().then(function() {
+    // Start data processing worker first
+    startDataWorker();
+    
+    // Start auto-search for hardware
     startAutoSearch();
+    
     // Start periodic status updates after a delay to ensure window is ready
     setTimeout(function() {
         startStatusUpdates();
     }, 2000);
+});
+
+// Clean up worker when app quits
+app.on('before-quit', function() {
+    if (dataWorker) {
+        dataWorker.terminate();
+        dataWorker = null;
+    }
 });

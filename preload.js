@@ -11,15 +11,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     autoConnectStirling: () => ipcRenderer.invoke('auto-connect-stirling'),
     openAdminWindow: () => ipcRenderer.invoke('open-admin-window'),
     
-    // Data handling
+    // Data handling - receives parsed data from worker thread
     onStirlingData: (callback) => {
-        ipcRenderer.on('stirling-data', callback);
+        ipcRenderer.on('stirling-data', (event, data) => {
+            callback(event, data);
+        });
     },
     onRawData: (callback) => {
         ipcRenderer.on('raw-data', callback);
     },
     onConnectionStatus: (callback) => {
         ipcRenderer.on('connection-status', callback);
+    },
+    onSentCommand: (callback) => {
+        ipcRenderer.on('sent-command', callback);
     },
     // Heater control
     setHeater: (value) => ipcRenderer.invoke('set-heater', value),

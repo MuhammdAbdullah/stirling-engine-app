@@ -43,7 +43,9 @@
       "!node_modules/chart.js/dist/chart.min.js",
       "!dist/**/*",
       "lib/**/*",
-      "node_modules/chart.js/dist/chart.umd.js"
+      "node_modules/chart.js/dist/chart.umd.js",
+      "data-worker.js",
+      "stirling-data-parser.js"
     ],
     "win": {
       "target": "nsis"
