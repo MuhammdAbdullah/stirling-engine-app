@@ -63,6 +63,35 @@ Make sure you have Node.js installed on your computer:
    node setup.js
    ```
 
+## Linux Installation
+
+The Linux version of the app is available on GitHub! See **[LINUX-INSTALL.md](LINUX-INSTALL.md)** for detailed installation instructions.
+
+### Quick Download
+
+**Repository:** https://github.com/MuhammdAbdullah/stirling-engine-app
+
+**Available formats:**
+- **AppImage** (Recommended - No installation needed)
+- **DEB Package** (For Ubuntu/Debian)
+- **TAR.GZ Archive** (Portable)
+
+### Quick Start (AppImage)
+
+```bash
+# Download
+cd ~/Downloads
+wget "https://github.com/MuhammdAbdullah/stirling-engine-app/raw/main/dist/Matrix%20Stirling%20Engine-1.0.0.AppImage" -O "Matrix Stirling Engine-1.0.0.AppImage"
+
+# Make executable
+chmod +x "Matrix Stirling Engine-1.0.0.AppImage"
+
+# Run
+./"Matrix Stirling Engine-1.0.0.AppImage"
+```
+
+For detailed instructions, troubleshooting, and other installation methods, see **[LINUX-INSTALL.md](LINUX-INSTALL.md)**.
+
 ### Running the Application
 
 1. **Start the application**
