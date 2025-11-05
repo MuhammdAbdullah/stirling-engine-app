@@ -1043,5 +1043,5 @@ function initializeUI() {
         });
     }
     
-    
-}); // End of initializeUI function
+    console.log('[UI] UI initialization complete');
+} // End of initializeUI function
