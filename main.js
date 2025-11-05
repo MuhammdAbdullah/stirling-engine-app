@@ -72,6 +72,21 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     }
 
+    // Send connection status once window is ready to receive messages
+    mainWindow.webContents.once('did-finish-load', function() {
+        // Wait a moment for renderer to set up listeners, then send current status
+        setTimeout(function() {
+            if (isSerialConnected && currentSerialPort) {
+                sendConnectionStatus(true, {
+                    port: currentSerialPort.path,
+                    vid: TARGET_VENDOR_ID,
+                    pid: TARGET_PRODUCT_ID,
+                    deviceType: 'Stirling Engine'
+                });
+            }
+        }, 500);
+    });
+
     // Emitted when the window is closed
     mainWindow.on('closed', function () {
         mainWindow = null;
@@ -171,7 +186,12 @@ async function connectSerialAtPath(portPath) {
                 console.log('[SERIAL] Connected to', portPath);
                 isSerialConnected = true;
                 currentSerialPort = port;
+                // Send connection status immediately
                 sendConnectionStatus(true, { port: portPath, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID, deviceType: 'Stirling Engine' });
+                // Also send it again after a short delay to ensure window is ready
+                setTimeout(function() {
+                    sendConnectionStatus(true, { port: portPath, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID, deviceType: 'Stirling Engine' });
+                }, 1000);
                 resolve({ success: true, port: portPath });
             });
 
