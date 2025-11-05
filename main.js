@@ -67,10 +67,14 @@ function createWindow() {
     // Load the HTML file
     mainWindow.loadFile('index.html');
 
-    // Open the DevTools in development mode
-    if (process.argv.includes('--dev')) {
+    // Open the DevTools in development mode or for debugging
+    if (process.argv.includes('--dev') || process.argv.includes('--debug')) {
         mainWindow.webContents.openDevTools();
     }
+    
+    // Always enable console logging for debugging (you can disable this later)
+    // For now, let's enable DevTools to see what's happening
+    mainWindow.webContents.openDevTools();
 
     // Send connection status once window is ready to receive messages
     mainWindow.webContents.once('did-finish-load', function() {
