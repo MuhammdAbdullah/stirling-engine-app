@@ -24,8 +24,23 @@ if (typeof Chart === 'undefined') {
 }
 
 function initializeApp() {
+    // Check if DOM is already loaded
+    if (document.readyState === 'loading') {
+        // DOM is still loading, wait for it
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeUI();
+        });
+    } else {
+        // DOM is already loaded, initialize immediately
+        initializeUI();
+    }
+}
+
+function initializeUI() {
+    console.log('[UI] Initializing UI...');
+    
 // Wait for the page to load before running our code
-document.addEventListener('DOMContentLoaded', function() {
+// DOMContentLoaded already handled in initializeApp
     
     // Stirling data parser is already included in index.html
     
@@ -1029,5 +1044,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     
-});
-} // End of initializeApp function
+}); // End of initializeUI function
