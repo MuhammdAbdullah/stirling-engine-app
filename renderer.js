@@ -902,7 +902,14 @@ function initializeUI() {
                         for (var j = 0; j < latestPVPackets.length; j++) {
                             updatePVChart(latestPVPackets[j]);
                         }
-                        // Data processed silently
+                        // Force a chart update after processing all packets to ensure it redraws
+                        if (pvChart && pvChart.data && pvChart.data.datasets && pvChart.data.datasets[0]) {
+                            try {
+                                pvChart.update('none');
+                            } catch (e) {
+                                console.warn('[UI] Error updating chart after batch:', e);
+                            }
+                        }
                     }
                     
                     // Handle data for statistics (only process latest packet)
