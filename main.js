@@ -149,7 +149,7 @@ const TARGET_PRODUCT_ID = '010B';
 function sendConnectionStatus(connected, info) {
     try {
         if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
-            console.log('[SERIAL] Cannot send connection status - window not ready');
+            // Window not ready, skip status update
             return;
         }
         const payload = Object.assign({ connected: connected }, info || {});
@@ -174,7 +174,7 @@ async function findStirlingDevicePort() {
                 return p;
             }
         }
-        // Not found this round
+        // Device not found this round
         sendConnectionStatus(false, { message: 'Device not found yet. Still searching...' });
         return null;
     } catch (e) {

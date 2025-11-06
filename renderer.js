@@ -965,7 +965,6 @@ function initializeUI() {
             if (parsedData.volumeReadings.length > 0) {
                 const avgVolume = parsedData.volumeReadings.reduce((a, b) => a + b, 0) / parsedData.volumeReadings.length;
                 volumeData.push(avgVolume);
-                console.log('Volume readings:', parsedData.volumeReadings.map(v => v.toFixed(2)));
             }
             
             if (parsedData.rpm > 0) {
