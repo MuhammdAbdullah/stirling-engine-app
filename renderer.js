@@ -617,6 +617,12 @@ function initializeUI() {
             }
             return;
         }
+        
+        // Ensure chart is ready
+        if (!pvChart.data || !pvChart.data.datasets || !pvChart.data.datasets[0]) {
+            console.warn('[UI] Chart not ready, initializing...');
+            return;
+        }
         if (!parsed.pressureReadings || parsed.pressureReadings.length === 0 || !parsed.volumeReadings || parsed.volumeReadings.length === 0) {
             return; // only handle PV packets
         }
@@ -643,16 +649,31 @@ function initializeUI() {
             return;
         }
         
+        // Force chart update - ensure it redraws when data arrives
         var nowMs = Date.now();
-        // Reduced update frequency to 10 FPS (100ms) for better performance
-        if (nowMs - lastChartDrawMs > 100) {
+        // Update more frequently (50ms = 20 FPS) to ensure smooth plotting
+        if (nowMs - lastChartDrawMs > 50) {
             lastChartDrawMs = nowMs;
-            // Batch chart updates using requestAnimationFrame for better performance
+            // Update chart immediately, don't wait for requestAnimationFrame
+            try {
+                if (pvChart) {
+                    pvChart.update('none');
+                }
+                if (pressureChart) {
+                    pressureChart.update('none');
+                }
+                if (volumeChart) {
+                    volumeChart.update('none');
+                }
+            } catch (e) {
+                console.warn('[UI] Chart update error:', e);
+            }
+        } else {
+            // Even if throttled, schedule an update for the next frame
             if (!chartUpdatePending) {
                 chartUpdatePending = true;
                 requestAnimationFrame(function() {
                     try {
-                        // Use 'none' mode to skip animations for faster updates
                         if (pvChart) pvChart.update('none');
                         if (pressureChart) pressureChart.update('none');
                         if (volumeChart) volumeChart.update('none');
