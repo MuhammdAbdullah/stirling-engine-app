@@ -34,8 +34,7 @@ parentPort.on('error', (error) => {
   console.error('[WORKER] Error:', error);
 });
 
-// Log when worker is ready
-console.log('[WORKER] Data processing worker thread started on separate CPU core');
+// Worker thread ready
 
 
 

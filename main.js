@@ -38,7 +38,7 @@ app.on('browser-window-created', (event, window) => {
         console.warn('Renderer process became unresponsive');
     });
     window.webContents.on('responsive', () => {
-        console.log('Renderer process is responsive again');
+        // Renderer process responsive
     });
 });
 
@@ -82,11 +82,9 @@ function createWindow() {
 
     // Send connection status once window is ready to receive messages
     mainWindow.webContents.once('did-finish-load', function() {
-        console.log('[MAIN] Window finished loading, sending initial connection status');
         // Wait a moment for renderer to set up listeners, then send current status
         setTimeout(function() {
             if (isSerialConnected && currentSerialPort) {
-                console.log('[MAIN] Sending initial connected status');
                 sendConnectionStatus(true, {
                     port: currentSerialPort.path,
                     vid: TARGET_VENDOR_ID,
@@ -94,13 +92,11 @@ function createWindow() {
                     deviceType: 'Stirling Engine'
                 });
             } else {
-                console.log('[MAIN] Sending initial disconnected status');
                 sendConnectionStatus(false, { message: 'Searching for device...' });
             }
             // Also send it again after a longer delay to ensure it's received
             setTimeout(function() {
                 if (isSerialConnected && currentSerialPort) {
-                    console.log('[MAIN] Sending delayed connected status');
                     sendConnectionStatus(true, {
                         port: currentSerialPort.path,
                         vid: TARGET_VENDOR_ID,
@@ -157,7 +153,6 @@ function sendConnectionStatus(connected, info) {
             return;
         }
         const payload = Object.assign({ connected: connected }, info || {});
-        console.log('[SERIAL] Sending connection-status:', payload);
         mainWindow.webContents.send('connection-status', payload);
     } catch (e) {
         console.error('[SERIAL] Error sending connection status:', e && e.message ? e.message : e);
@@ -169,20 +164,17 @@ async function findStirlingDevicePort() {
     try {
         const ports = await SerialPort.list();
         // Inform UI we are searching
-        console.log('[SERIAL] Searching for Stirling Engine device (VID: 0x' + TARGET_VENDOR_ID + ', PID: 0x' + TARGET_PRODUCT_ID + ')...');
         sendConnectionStatus(false, { message: 'Searching for Stirling Engine device...' });
         for (let i = 0; i < ports.length; i++) {
             const p = ports[i];
             const vid = p.vendorId ? String(p.vendorId).toUpperCase() : '';
             const pid = p.productId ? String(p.productId).toUpperCase() : '';
             if (vid === TARGET_VENDOR_ID && pid === TARGET_PRODUCT_ID) {
-                console.log('[SERIAL] Device found on', p.path);
                 sendConnectionStatus(false, { message: `Device found on ${p.path}. Preparing to connect...`, port: p.path, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID });
                 return p;
             }
         }
         // Not found this round
-        console.log('[SERIAL] Device not found yet. Still searching...');
         sendConnectionStatus(false, { message: 'Device not found yet. Still searching...' });
         return null;
     } catch (e) {
@@ -237,7 +229,6 @@ function attemptConnection(portPath, resolve) {
             });
 
             port.on('open', function() {
-                console.log('[SERIAL] Connected to', portPath);
                 isSerialConnected = true;
                 isConnecting = false; // Clear connecting flag on success
                 currentSerialPort = port;
@@ -308,7 +299,6 @@ function attemptConnection(portPath, resolve) {
                     // Check if it's a lock error - wait longer before retry
                     const errorMsg = err && err.message ? err.message : '';
                     if (errorMsg.includes('lock') || errorMsg.includes('temporarily unavailable')) {
-                        console.log('[SERIAL] Port is locked, will retry after delay');
                         sendConnectionStatus(false, { error: 'Port busy, retrying...' });
                         // Wait longer before next attempt
                         setTimeout(function() {
@@ -348,7 +338,6 @@ ipcMain.handle('auto-connect-stirling', async () => {
             return { success: false, error: 'Device not found' };
         }
 
-        console.log('[SERIAL] Connecting to', dev.path, '...');
         sendConnectionStatus(false, { message: `Connecting to ${dev.path}...`, port: dev.path, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID });
         const result = await connectSerialAtPath(dev.path);
         return result;
@@ -493,7 +482,6 @@ function startAutoSearch() {
         const dev = await findStirlingDevicePort();
         if (dev && !isSerialConnected && !isConnecting) {
             isConnecting = true;
-            console.log('[SERIAL] Attempting connection to', dev.path, '...');
             sendConnectionStatus(false, { message: `Attempting connection to ${dev.path}...`, port: dev.path, vid: TARGET_VENDOR_ID, pid: TARGET_PRODUCT_ID });
             try {
                 await connectSerialAtPath(dev.path);
@@ -554,10 +542,7 @@ function startDataWorker() {
                     try {
                         // Send packets array to renderer
                         mainWindow.webContents.send('stirling-data', packets);
-                        // Debug log every 10th packet to avoid spam
-                        if (packets.length > 0 && Math.random() < 0.1) {
-                            console.log('[MAIN] Forwarded', packets.length, 'parsed packet(s) to renderer');
-                        }
+                        // Data forwarded silently
                     } catch (e) {
                         // Window might be closing, ignore
                         console.warn('[MAIN] Error sending to renderer:', e && e.message ? e.message : e);
@@ -579,7 +564,7 @@ function startDataWorker() {
             dataWorker = null;
         });
         
-        console.log('[MAIN] Data processing worker started on separate thread');
+        // Data processing worker started
     } catch (e) {
         console.error('[MAIN] Failed to start data worker:', e);
         dataWorker = null;

@@ -10,7 +10,6 @@ if (typeof Chart === 'undefined') {
         attempts++;
         if (typeof Chart !== 'undefined') {
             clearInterval(checkChart);
-            console.log('Chart.js is now available');
             initializeApp();
         } else if (attempts > 50) {
             clearInterval(checkChart);
@@ -37,8 +36,6 @@ function initializeApp() {
 }
 
 function initializeUI() {
-    console.log('[UI] Initializing UI...');
-    
 // Wait for the page to load before running our code
 // DOMContentLoaded already handled in initializeApp
     
@@ -329,7 +326,6 @@ function initializeUI() {
     // Immediately sync current connection status once UI is ready
     if (window.electronAPI && window.electronAPI.getConnectionStatus) {
         window.electronAPI.getConnectionStatus().then(function(status){
-            try { console.log('[UI] initial connection-status:', status); } catch (e) {}
             updateConnectionStatus(status);
         }).catch(function(e){
             try { console.error('[UI] getConnectionStatus error:', e && e.message ? e.message : e); } catch (e2) {}
@@ -344,8 +340,6 @@ function initializeUI() {
             }
             window.electronAPI.getConnectionStatus().then(function(status){
                 try { 
-                    console.log('[UI] polled connection-status:', status);
-                    console.log('[UI] polled status.connected =', status.connected);
                 } catch (e) {}
                 updateConnectionStatus(status);
             }).catch(function(e){
@@ -833,8 +827,7 @@ function initializeUI() {
         if (window.electronAPI) {
             window.electronAPI.onConnectionStatus((event, status) => {
                 try { 
-                    console.log('[UI] connection-status event received:', status);
-                    console.log('[UI] status.connected =', status.connected);
+                    // Status updates handled silently
                 } catch (e) {
                     console.error('[UI] Error in connection-status handler:', e);
                 }
@@ -888,10 +881,7 @@ function initializeUI() {
                         for (var j = 0; j < latestPVPackets.length; j++) {
                             updatePVChart(latestPVPackets[j]);
                         }
-                        // Debug log every 10th batch
-                        if (Math.random() < 0.1) {
-                            console.log('[UI] Processed', latestPVPackets.length, 'PV packet(s) in batch');
-                        }
+                        // Data processed silently
                     }
                     
                     // Handle data for statistics (only process latest packet)
@@ -906,10 +896,7 @@ function initializeUI() {
                     var processedCount = pendingDataPackets.length;
                     pendingDataPackets = [];
                     
-                    // Debug log occasionally
-                    if (processedCount > 0 && Math.random() < 0.1) {
-                        console.log('[UI] Processed batch of', processedCount, 'packet(s)');
-                    }
+                    // Batch processed silently
                 }
                 
                 // Start batch processing interval (100ms = 10 updates per second)
@@ -919,7 +906,6 @@ function initializeUI() {
                 }
                 if (!dataBatchInterval) {
                     dataBatchInterval = setInterval(processBatchedData, 100);
-                    console.log('[UI] Batch processing interval started');
                 }
                 
                 // Accumulate packets into batch
@@ -939,10 +925,7 @@ function initializeUI() {
                             }
                         }
                         
-                        // Debug log every 10th packet
-                        if (parsedPackets.length > 0 && Math.random() < 0.1) {
-                            console.log('[UI] Received', parsedPackets.length, 'packet(s), total pending:', pendingDataPackets.length);
-                        }
+                        // Data received silently
                         
                         // Limit batch size to prevent memory issues
                         if (pendingDataPackets.length > 50) {
@@ -1034,7 +1017,7 @@ function initializeUI() {
             if (stopButton) stopButton.disabled = true;
             
             if (status.vid && status.pid) {
-                console.log(`✅ Connected to device: VID=0x${status.vid}, PID=0x${status.pid}`);
+                // Connected silently
             }
         } else {
             // Prefer detailed message if provided
@@ -1070,20 +1053,17 @@ function initializeUI() {
             
             if (status.connected) {
                 // System is ONLINE
-                console.log('[UI] Updating status to ONLINE');
                 systemStatusBanner.className = 'system-status-banner online';
                 statusTextEl.textContent = 'SYSTEM ONLINE';
                 
                 // Centered banner shows only the main text
             } else if (status.error) {
                 // System is OFFLINE with error
-                console.log('[UI] Updating status to OFFLINE (error:', status.error, ')');
                 systemStatusBanner.className = 'system-status-banner offline';
                 statusTextEl.textContent = 'SYSTEM OFFLINE';
             } else {
                 // System is CONNECTING/SEARCHING
                 // Show OFFLINE until device is actually connected (no 'connecting' text)
-                console.log('[UI] Updating status to OFFLINE (connecting)');
                 systemStatusBanner.className = 'system-status-banner offline';
                 statusTextEl.textContent = 'SYSTEM OFFLINE';
             }
@@ -1099,16 +1079,12 @@ function initializeUI() {
     // Auto-connect function (called automatically by main process)
     async function attemptAutoConnect() {
         try {
-            console.log('Attempting auto-connect to Stirling Engine device...');
             const result = await window.electronAPI.autoConnectStirling();
             
             if (result.success) {
-                console.log('Successfully auto-connected to Stirling Engine on:', result.port);
                 currentPort = result.port;
-            } else {
-                console.log('Auto-connect failed:', result.error);
-                // The main process will keep trying automatically
             }
+            // Auto-connect attempts handled silently by main process
         } catch (error) {
             console.error('Error during auto-connect:', error);
             // The main process will keep trying automatically
@@ -1174,6 +1150,5 @@ function initializeUI() {
         });
     }
     
-    console.log('[UI] UI initialization complete');
 } // End of initializeUI function
 
