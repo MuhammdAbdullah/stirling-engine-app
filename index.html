@@ -31,9 +31,9 @@
                     <div class="control-panel-left">
                         <div class="control-row slider-row">
                             <label for="heaterSlider">Heater Setpoint (°C)</label>
-                            <input id="heaterSlider" type="range" min="20" max="70" value="40" />
-                            <span id="heaterTip" class="slider-tip">40</span>
-                            <span id="heaterValue">40°C</span>
+                            <input id="heaterSlider" type="range" min="20" max="70" value="20" />
+                            <span id="heaterTip" class="slider-tip">20</span>
+                            <span id="heaterValue">20°C</span>
                         </div>
                         <div class="control-row">
                             <button id="heaterToggle" class="btn btn-start">Heater ON</button>
@@ -51,6 +51,9 @@
                             <label for="sweepInterval">Interval (ms):</label>
                             <input id="sweepInterval" type="number" min="50" value="200" class="num-input" />
                             <button id="sweepToggle" class="btn btn-connect">Start Sweep</button>
+                            <div class="csv-inline-group">
+                                <button id="csvToggle" class="btn btn-start">Start CSV Save</button>
+                            </div>
                         </div>
                     </div>
                     <div class="control-panel-right">

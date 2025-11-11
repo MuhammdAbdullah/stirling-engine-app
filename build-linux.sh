@@ -34,3 +34,4 @@ echo "  - Matrix Stirling Engine-x.x.x.AppImage (run directly)"
 echo "  - Matrix Stirling Engine-x.x.x.deb (install with: sudo dpkg -i ...)"
 echo "  - Matrix Stirling Engine-x.x.x.tar.gz (extract and run)"
 
+

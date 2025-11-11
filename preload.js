@@ -28,9 +28,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     // Heater control
     setHeater: (value) => ipcRenderer.invoke('set-heater', value),
+    setHeaterMode: (mode) => ipcRenderer.invoke('set-heater-mode', mode),
+    setHardwareReady: (value) => ipcRenderer.invoke('set-hardware-ready', value),
     // Aux control (0-100%)
     setAux: (value) => ipcRenderer.invoke('set-aux', value),
     getConnectionStatus: () => ipcRenderer.invoke('get-connection-status'),
+
+    // CSV saving
+    saveCsv: (filePath, rows) => ipcRenderer.invoke('save-csv', { filePath, rows }),
+    chooseCsvPath: () => ipcRenderer.invoke('choose-csv-path'),
     
     // Remove listeners to prevent memory leaks
     removeAllListeners: (channel) => {

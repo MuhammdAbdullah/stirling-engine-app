@@ -61,8 +61,9 @@ function initializeUI() {
     const sweepStepEl = document.getElementById('sweepStep');
     const sweepIntervalEl = document.getElementById('sweepInterval');
     const sweepToggle = document.getElementById('sweepToggle');
+    const csvToggleButton = document.getElementById('csvToggle');
     const themeSelector = document.getElementById('themeSelector');
-    let heaterOn = true;
+    let heaterOn = false;
     let currentTheme = 'light';
     const chartCanvas = document.getElementById('temperatureChart');
     const pvCanvas = document.getElementById('pvChart');
@@ -102,14 +103,47 @@ function initializeUI() {
     
     // USB Serial Communication variables
     let isConnected = false;
+    let heaterInitializedOnConnection = false;
     let currentPort = null;
     let stirlingParser = null;
+    
+    // Track last valid RPM and Temperature values (don't show 0)
+    let lastValidRPM = null;
+    let lastValidTemperature = null;
     
     // Data storage for Stirling Engine
     let pressureData = [];
     let volumeData = [];
     let rpmData = [];
     let heaterTempData = [];
+    let isCsvSaving = false;
+    let csvRows = [];
+    let csvFilePath = '';
+    let lastCsvTemperature = '';
+    let lastCsvRpm = '';
+    let lastCsvPressure = '';
+    let lastCsvVolume = '';
+    
+    // Asynchronous CSV logging queue
+    let csvPacketQueue = [];
+    let csvProcessingInterval = null;
+    let csvPacketsProcessed = 0;
+    
+    function toMm3(valueInM3) {
+        return valueInM3 * 1000000000;
+    }
+
+    function formatMm3(value) {
+        if (value === null || value === undefined) {
+            return '--';
+        }
+        var numberValue = Number(value);
+        if (!isFinite(numberValue)) {
+            return '--';
+        }
+        var rounded = Math.round(numberValue);
+        return rounded.toLocaleString();
+    }
     
     
     // Initialize the chart when the page loads (temperature chart removed)
@@ -137,7 +171,9 @@ function initializeUI() {
 
     // Heater UI events
     if (heaterSlider && heaterValue) {
-        heaterValue.textContent = heaterSlider.value + '°C';
+        // Set slider to 20 when app opens
+        heaterSlider.value = 20;
+        heaterValue.textContent = '20°C';
         updateSliderTip();
         let sliderDebounce = null;
         heaterSlider.addEventListener('input', function() {
@@ -145,7 +181,7 @@ function initializeUI() {
             updateSliderTip();
             if (sliderDebounce) clearTimeout(sliderDebounce);
             sliderDebounce = setTimeout(function(){
-                sendHeaterCommand();
+                sendHeaterSetpoint();
             }, 150);
         });
         // Show tip on hover with cursor position
@@ -170,16 +206,25 @@ function initializeUI() {
             heaterOn = !heaterOn;
             heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
             try { heaterToggle.classList.toggle('active', heaterOn); } catch(_){}
-            sendHeaterCommand();
+            sendHeaterMode();
+            if (heaterOn) {
+                sendHeaterSetpoint();
+            }
         });
         // Set initial text based on state
         heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
     }
 
-    function sendHeaterCommand() {
+    function sendHeaterSetpoint() {
         if (!window.electronAPI || !window.electronAPI.setHeater) return;
-        var val = heaterOn ? Math.max(20, Math.min(70, parseInt(heaterSlider ? heaterSlider.value : 0))) : 0;
+        var raw = parseInt(heaterSlider ? heaterSlider.value : 20);
+        var val = Math.max(20, Math.min(70, isNaN(raw) ? 20 : raw));
         window.electronAPI.setHeater(val);
+    }
+
+    function sendHeaterMode() {
+        if (!window.electronAPI || !window.electronAPI.setHeaterMode) return;
+        window.electronAPI.setHeaterMode(heaterOn ? 1 : 0);
     }
 
     function updateSliderTip() {
@@ -213,7 +258,9 @@ function initializeUI() {
 
     // Aux slider events
     if (auxSlider && auxValue) {
-        auxValue.textContent = auxSlider.value + '%';
+        // Set slider to 0 when app opens
+        auxSlider.value = 0;
+        auxValue.textContent = '0%';
         updateAuxTip();
         let auxDebounce = null;
         auxSlider.addEventListener('input', function(){
@@ -306,7 +353,259 @@ function initializeUI() {
         }, interval);
     }
     if (sweepToggle) { sweepToggle.addEventListener('click', handleSweepToggle); }
+    if (csvToggleButton) {
+        csvToggleButton.addEventListener('click', toggleCsvSaving);
+        setCsvIndicator(false);
+    }
     if (adminButton) { adminButton.addEventListener('click', openAdminWindow); }
+    
+    function setCsvIndicator(active) {
+        if (!csvToggleButton) {
+            return;
+        }
+        csvToggleButton.classList.remove('csv-saving', 'csv-idle');
+        if (active) {
+            csvToggleButton.classList.add('csv-saving');
+        } else {
+            csvToggleButton.classList.add('csv-idle');
+        }
+    }
+
+    function resetCsvState() {
+        isCsvSaving = false;
+        csvRows = [];
+        csvFilePath = '';
+        lastCsvTemperature = '';
+        lastCsvRpm = '';
+        lastCsvPressure = '';
+        lastCsvVolume = '';
+        csvPacketQueue = [];
+        csvPacketsProcessed = 0;
+        
+        // Stop the async processing interval
+        if (csvProcessingInterval) {
+            clearInterval(csvProcessingInterval);
+            csvProcessingInterval = null;
+        }
+        
+        if (csvToggleButton) {
+            csvToggleButton.textContent = 'Start CSV Save';
+        }
+        setCsvIndicator(false);
+    }
+
+    async function startCsvSaving() {
+        if (!window.electronAPI || !window.electronAPI.chooseCsvPath) {
+            alert('CSV save feature is not available.');
+            return;
+        }
+        let dialogResult = null;
+        try {
+            dialogResult = await window.electronAPI.chooseCsvPath();
+        } catch (e) {
+            alert('Unable to open the save window. Please try again.');
+            return;
+        }
+        if (!dialogResult || !dialogResult.success || !dialogResult.filePath) {
+            return;
+        }
+        csvFilePath = dialogResult.filePath;
+        csvRows = ['Timestamp,Pressure,Volume_mm3,Temperature,RPM'];
+        lastCsvTemperature = '';
+        lastCsvRpm = '';
+        lastCsvPressure = '';
+        lastCsvVolume = '';
+        csvPacketQueue = [];
+        csvPacketsProcessed = 0;
+        isCsvSaving = true;
+        
+        // Start async processing of CSV queue
+        startCsvAsyncProcessing();
+        
+        if (csvToggleButton) {
+            csvToggleButton.textContent = 'Stop CSV Save';
+        }
+        setCsvIndicator(true);
+    }
+
+    function stopCsvSaving() {
+        if (!isCsvSaving) {
+            return;
+        }
+        
+        // Stop the async processing interval
+        if (csvProcessingInterval) {
+            clearInterval(csvProcessingInterval);
+            csvProcessingInterval = null;
+        }
+        
+        // Process all remaining packets in the queue before saving
+        while (csvPacketQueue.length > 0) {
+            var packet = csvPacketQueue.shift();
+            if (packet) {
+                processCsvPacket(packet);
+                csvPacketsProcessed++;
+            }
+        }
+        
+        if (!window.electronAPI || !window.electronAPI.saveCsv) {
+            alert('CSV save feature is not available.');
+            resetCsvState();
+            return;
+        }
+        var rowsToWrite = csvRows.slice();
+        var targetPath = csvFilePath;
+        window.electronAPI.saveCsv(targetPath, rowsToWrite).then(function(result) {
+            // CSV saved silently - no popup
+            resetCsvState();
+        }).catch(function(error) {
+            // CSV save error - no popup, just reset state
+            resetCsvState();
+        });
+    }
+
+    async function toggleCsvSaving() {
+        if (!isCsvSaving) {
+            await startCsvSaving();
+        } else {
+            stopCsvSaving();
+        }
+    }
+
+    // Start async processing of CSV queue
+    function startCsvAsyncProcessing() {
+        if (csvProcessingInterval) {
+            return; // Already running
+        }
+        
+        // Process queue every 50ms (20 times per second) - fast enough to not lose data
+        csvProcessingInterval = setInterval(function() {
+            processCsvQueue();
+        }, 50);
+    }
+    
+    // Process packets from the queue asynchronously
+    function processCsvQueue() {
+        if (!isCsvSaving || csvPacketQueue.length === 0) {
+            return;
+        }
+        
+        // Process up to 100 packets at a time to avoid blocking
+        var batchSize = 100;
+        var processed = 0;
+        
+        while (csvPacketQueue.length > 0 && processed < batchSize) {
+            var packet = csvPacketQueue.shift();
+            if (packet) {
+                processCsvPacket(packet);
+                csvPacketsProcessed++;
+                processed++;
+            }
+        }
+    }
+    
+    // Quick function to add packet to queue (non-blocking)
+    function recordCsvPacket(parsedData) {
+        if (!isCsvSaving || !parsedData) {
+            return;
+        }
+        
+        // Quickly update last known values (very fast operation)
+        // Only update if values are valid finite numbers
+        if (typeof parsedData.rpm === 'number' && parsedData.rpm > 0) {
+            lastCsvRpm = parsedData.rpm;
+        }
+        if (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) {
+            lastCsvTemperature = parsedData.heaterTemperature;
+        }
+        if (Array.isArray(parsedData.pressureReadings) && parsedData.pressureReadings.length > 0) {
+            var pressureValue = Number(parsedData.pressureReadings[0]);
+            // Only store valid finite pressure values
+            if (isFinite(pressureValue)) {
+                lastCsvPressure = pressureValue;
+            }
+        }
+        if (Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0) {
+            var volumeValue = Number(parsedData.volumeReadings[0]);
+            // Only store valid finite volume values
+            if (isFinite(volumeValue)) {
+                lastCsvVolume = volumeValue;
+            }
+        }
+        
+        // Check if this packet has data worth saving
+        var hasPressureVolume = Array.isArray(parsedData.pressureReadings) && parsedData.pressureReadings.length > 0 &&
+                                 Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0;
+        var hasTemperatureRpm = (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) ||
+                                 (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
+        
+        if (hasPressureVolume || hasTemperatureRpm) {
+            // Add to queue for async processing (very fast, non-blocking)
+            csvPacketQueue.push(parsedData);
+            
+            // Prevent queue from growing too large (keep last 10000 packets)
+            if (csvPacketQueue.length > 10000) {
+                csvPacketQueue.shift(); // Remove oldest if queue too large
+            }
+        }
+    }
+    
+    // Process a single packet and add to CSV rows (called asynchronously)
+    function processCsvPacket(parsedData) {
+        if (!parsedData) {
+            return;
+        }
+        
+        // Check what data we have in this packet
+        var hasPressureVolume = Array.isArray(parsedData.pressureReadings) && parsedData.pressureReadings.length > 0 &&
+                                 Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0;
+        var hasTemperatureRpm = (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) ||
+                                 (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
+        
+        // Only log packets that have pressure/volume data (PV packets)
+        // Don't log RT packets that don't have pressure data
+        if (!hasPressureVolume) {
+            return;
+        }
+        
+        // Get timestamp (only hour, minutes, seconds, and milliseconds)
+        var dateObj = (parsedData.timestamp && parsedData.timestamp instanceof Date) ? parsedData.timestamp : new Date();
+        var hours = String(dateObj.getHours()).padStart(2, '0');
+        var minutes = String(dateObj.getMinutes()).padStart(2, '0');
+        var seconds = String(dateObj.getSeconds()).padStart(2, '0');
+        var milliseconds = String(dateObj.getMilliseconds()).padStart(3, '0');
+        var timestampText = hours + ':' + minutes + ':' + seconds + '.' + milliseconds;
+        
+        // Get pressure and volume values from the packet
+        var pressureValue = Number(parsedData.pressureReadings[0]);
+        var volumeValue = Number(parsedData.volumeReadings[0]);
+        
+        // Validate that values are finite numbers (reject NaN, Infinity, etc.)
+        if (!isFinite(pressureValue) || !isFinite(volumeValue)) {
+            // Invalid pressure or volume, skip this packet
+            return;
+        }
+        
+        // Get temperature and RPM values (use last known if available)
+        var temperatureValue = '';
+        var rpmValue = '';
+        if (hasTemperatureRpm) {
+            temperatureValue = (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) ? parsedData.heaterTemperature : lastCsvTemperature;
+            rpmValue = (typeof parsedData.rpm === 'number' && parsedData.rpm > 0) ? parsedData.rpm : lastCsvRpm;
+        } else {
+            temperatureValue = lastCsvTemperature;
+            rpmValue = lastCsvRpm;
+        }
+        
+        // Format values for CSV
+        var pressureText = (pressureValue === '' || pressureValue === null || pressureValue === undefined) ? '' : String(pressureValue);
+        var volumeText = (volumeValue === '' || volumeValue === null || volumeValue === undefined) ? '' : Number(volumeValue).toFixed(2);
+        var temperatureText = (temperatureValue === '' || temperatureValue === null || temperatureValue === undefined) ? '' : String(temperatureValue);
+        var rpmText = (rpmValue === '' || rpmValue === null || rpmValue === undefined) ? '' : String(rpmValue);
+        
+        // Add to CSV rows
+        csvRows.push(timestampText + ',' + pressureText + ',' + volumeText + ',' + temperatureText + ',' + rpmText);
+    }
     
     // Theme selector
     if (themeSelector) {
@@ -529,8 +828,13 @@ function initializeUI() {
                 aspectRatio: 1,
                 scales: {
                     x: {
-                        title: { display: true, text: 'Volume (m³)', font: { size: 14, weight: 'bold' } },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
+                        title: { display: true, text: 'Volume (mm³)', font: { size: 14, weight: 'bold' } },
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: {
+                            callback: function(value) {
+                                return formatMm3(toMm3(value));
+                            }
+                        }
                     },
                     y: {
                         title: { display: true, text: 'Pressure', font: { size: 14, weight: 'bold' } },
@@ -542,6 +846,16 @@ function initializeUI() {
                         display: true,
                         position: 'top',
                         labels: { font: { size: 14, weight: 'bold' } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                var pressureValue = context.raw ? context.raw.y : context.parsed.y;
+                                var volumeValue = context.raw ? context.raw.x : context.parsed.x;
+                                var mm3Value = toMm3(volumeValue);
+                                return 'Volume: ' + formatMm3(mm3Value) + ' mm³, Pressure: ' + pressureValue;
+                            }
+                        }
                     }
                 }
             },
@@ -602,9 +916,27 @@ function initializeUI() {
                 maintainAspectRatio: false,
                 scales: {
                     x: { title: { display: false }, ticks: { display: false }, grid: { display: false } },
-                    y: { title: { display: true, text: 'Volume' }, grid: { color: 'rgba(0,0,0,0.1)' } }
+                    y: { 
+                        title: { display: true, text: 'Volume (mm³)' }, 
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: {
+                            callback: function(value) {
+                                return formatMm3(value);
+                            }
+                        }
+                    }
                 },
-                plugins: { legend: { display: true, position: 'top' } }
+                plugins: { 
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                var value = context.parsed.y;
+                                return 'Volume: ' + formatMm3(value) + ' mm³';
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -703,7 +1035,7 @@ function initializeUI() {
             pressureTimeValues.push(parsed.pressureReadings[0]);
         }
         if (parsed.volumeReadings.length > 0) {
-            volumeTimeValues.push(parsed.volumeReadings[0]);
+            volumeTimeValues.push(Number(parsed.volumeReadings[0]));
         }
         // Keep last 100 samples (reduced for better performance)
         if (pressureTimeLabels.length > 100) { pressureTimeLabels.shift(); pressureTimeValues.shift(); }
@@ -873,12 +1205,14 @@ function initializeUI() {
                     for (var i = 0; i < pendingDataPackets.length; i++) {
                         var pkt = pendingDataPackets[i];
                         if (pkt && !pkt.__worker_error) {
-                            // Collect latest RPM and temp
-                            if (typeof pkt.rpm === 'number') {
+                            // Collect latest RPM and temp (only if > 0 to avoid showing 0)
+                            if (typeof pkt.rpm === 'number' && pkt.rpm > 0) {
                                 latestRPM = pkt.rpm;
+                                lastValidRPM = pkt.rpm; // Store last valid value
                             }
-                            if (typeof pkt.heaterTemperature === 'number') {
+                            if (typeof pkt.heaterTemperature === 'number' && pkt.heaterTemperature > 0) {
                                 latestTemp = pkt.heaterTemperature;
+                                lastValidTemperature = pkt.heaterTemperature; // Store last valid value
                             }
                             // Collect PV packets for batch chart update
                             if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 && 
@@ -888,12 +1222,18 @@ function initializeUI() {
                         }
                     }
                     
-                    // Update displays with latest values (only once per batch)
-                    if (latestRPM !== null && rpmValueEl) {
+                    // Update displays with latest values (only if we have valid data, otherwise keep last valid)
+                    if (latestRPM !== null && latestRPM > 0 && rpmValueEl) {
                         rpmValueEl.textContent = String(latestRPM);
+                    } else if (lastValidRPM !== null && rpmValueEl) {
+                        // Keep showing last valid RPM instead of 0
+                        rpmValueEl.textContent = String(lastValidRPM);
                     }
-                    if (latestTemp !== null && tempValueEl) {
+                    if (latestTemp !== null && latestTemp > 0 && tempValueEl) {
                         tempValueEl.textContent = String(latestTemp);
+                    } else if (lastValidTemperature !== null && tempValueEl) {
+                        // Keep showing last valid temperature instead of 0
+                        tempValueEl.textContent = String(lastValidTemperature);
                     }
                     
                     // Batch update PV chart (only once per batch)
@@ -912,11 +1252,18 @@ function initializeUI() {
                         }
                     }
                     
-                    // Handle data for statistics (only process latest packet)
+                    // Handle data for CSV logging - process ALL packets to avoid data loss
+                    // For UI statistics, we only need the latest, but CSV needs everything
                     if (pendingDataPackets.length > 0) {
-                        var lastPacket = pendingDataPackets[pendingDataPackets.length - 1];
-                        if (lastPacket && !lastPacket.__worker_error) {
-                            handleStirlingData([lastPacket]);
+                        // Process all packets for CSV logging
+                        var validPackets = [];
+                        for (var k = 0; k < pendingDataPackets.length; k++) {
+                            if (pendingDataPackets[k] && !pendingDataPackets[k].__worker_error) {
+                                validPackets.push(pendingDataPackets[k]);
+                            }
+                        }
+                        if (validPackets.length > 0) {
+                            handleStirlingData(validPackets);
                         }
                     }
                     
@@ -1013,6 +1360,7 @@ function initializeUI() {
             
             // Update UI with latest data
             updateDataDisplay(parsedData);
+            recordCsvPacket(parsedData);
         });
     }
     
@@ -1029,6 +1377,7 @@ function initializeUI() {
     }
     
     function updateConnectionStatus(status) {
+        var wasConnected = isConnected;
         isConnected = status.connected;
         
         
@@ -1043,10 +1392,47 @@ function initializeUI() {
             if (startButton) startButton.disabled = false;
             if (stopButton) stopButton.disabled = true;
             
+            // Turn heater OFF only when FIRST connecting (not on every status update)
+            if (!wasConnected && !heaterInitializedOnConnection) {
+                heaterOn = false;
+                if (heaterToggle) {
+                    heaterToggle.textContent = '○ Heater OFF';
+                    try { heaterToggle.classList.remove('active'); } catch(_){}
+                }
+                if (window.electronAPI && window.electronAPI.setHardwareReady) {
+                    window.electronAPI.setHardwareReady(1);
+                }
+                if (window.electronAPI && window.electronAPI.setHeaterMode) {
+                    window.electronAPI.setHeaterMode(0);
+                }
+                sendHeaterSetpoint();
+                heaterInitializedOnConnection = true;
+            }
+            
+            // Set Aux Output to 0 only when FIRST connecting (not on every status update)
+            if (!wasConnected) {
+                if (auxSlider) {
+                    auxSlider.value = 0;
+                    if (auxValue) {
+                        auxValue.textContent = '0%';
+                    }
+                    updateAuxTip();
+                }
+                // Send Aux Output 0 command immediately
+                if (window.electronAPI && window.electronAPI.setAux) {
+                    window.electronAPI.setAux(0);
+                }
+            }
+            
             if (status.vid && status.pid) {
                 // Connected silently
             }
         } else {
+            // Reset initialization flag when disconnected
+            heaterInitializedOnConnection = false;
+            if (window.electronAPI && window.electronAPI.setHardwareReady) {
+                window.electronAPI.setHardwareReady(0);
+            }
             // Prefer detailed message if provided
             if (status.message) {
                 statusText.textContent = status.message;

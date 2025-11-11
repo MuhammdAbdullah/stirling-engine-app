@@ -18,12 +18,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const processedDataDisplay = document.getElementById('processedDataDisplay');
     const connectionInfoDisplay = document.getElementById('connectionInfoDisplay');
     const statsDisplay = document.getElementById('statsDisplay');
+    const sentDataDisplay = document.getElementById('sentDataDisplay');
     
     // Data storage
     let rawDataBuffer = [];
     let parsedDataBuffer = [];
     let processedDataBuffer = [];
     let connectionLog = [];
+    let sentCommandsBuffer = [];
     let dataStats = {
         totalPackets: 0,
         totalBytes: 0,
@@ -64,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (name === 'processed') return 'processedDataTab';
             if (name === 'connection') return 'connectionTab';
             if (name === 'stats') return 'statsTab';
+            if (name === 'sent') return 'sentDataTab';
             return name + 'Tab';
         }
         
@@ -110,6 +113,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('[ADMIN] connection-status:', status);
                     updateSystemStatus(status);
                     addConnectionInfo(status);
+                });
+            }
+            if (window.electronAPI && window.electronAPI.onSentCommand) {
+                window.electronAPI.onSentCommand(function(event, commandData) {
+                    try {
+                        console.log('[ADMIN] sent-command event received');
+                        addSentCommand(commandData);
+                    } catch (e) {
+                        console.error('[ADMIN] sent-command handling error:', e);
+                    }
                 });
             }
         } catch (e) {
@@ -226,6 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
         parsedDataBuffer = [];
         processedDataBuffer = [];
         connectionLog = [];
+        sentCommandsBuffer = [];
         dataStats = {
             totalPackets: 0,
             totalBytes: 0,
@@ -270,6 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
         processedDataDisplay.textContent = 'Debug data cleared...';
         connectionInfoDisplay.textContent = 'Debug data cleared...';
         statsDisplay.textContent = 'Debug data cleared...';
+        sentDataDisplay.textContent = 'Debug data cleared...';
     }
     
     function updateAllDisplays() {
@@ -284,6 +299,8 @@ Average Packet Size: ${dataStats.averagePacketSize.toFixed(2)} bytes
 Data Rate: ${dataStats.dataRate.toFixed(2)} packets/sec
 Last Packet: ${dataStats.lastPacketTime ? dataStats.lastPacketTime.toLocaleTimeString() : 'None'}`;
         statsDisplay.textContent = statsText;
+        
+        sentDataDisplay.textContent = sentCommandsBuffer.length > 0 ? sentCommandsBuffer.join('\n\n') : 'No commands sent yet...';
     }
     
     // Functions to receive data from main window
@@ -440,6 +457,46 @@ Last Packet: ${dataStats.lastPacketTime ? dataStats.lastPacketTime.toLocaleTimeS
         }
     }
     
+    function addSentCommand(commandData) {
+        const timestamp = new Date().toLocaleTimeString();
+        let commandString = `[${timestamp}] `;
+        
+        // Format the command based on type
+        if (commandData.type === 'heater') {
+            const value = commandData.value;
+            const status = value === 0 ? 'OFF' : `ON (${value}°C)`;
+            const hexBytes = commandData.bytes.map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+            commandString += `🔥 HEATER COMMAND\n`;
+            commandString += `  Status: ${status}\n`;
+            commandString += `  Value: ${value}\n`;
+            commandString += `  Bytes: ${hexBytes}\n`;
+            commandString += `  Format: ':B${value};\\n' (0x3A 0x42 ${value} 0x3B 0x0A)`;
+        } else if (commandData.type === 'aux') {
+            const value = commandData.value;
+            const hexBytes = commandData.bytes.map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+            commandString += `⚙️ AUX COMMAND\n`;
+            commandString += `  Value: ${value}%\n`;
+            commandString += `  Bytes: ${hexBytes}\n`;
+            commandString += `  Format: ':X${value};\\n' (0x3A 0x58 ${value} 0x3B 0x0A)`;
+        } else {
+            // Generic command
+            const hexBytes = commandData.bytes ? commandData.bytes.map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ') : 'N/A';
+            commandString += `📤 COMMAND: ${commandData.type || 'Unknown'}\n`;
+            commandString += `  Value: ${commandData.value !== undefined ? commandData.value : 'N/A'}\n`;
+            commandString += `  Bytes: ${hexBytes}`;
+        }
+        
+        sentCommandsBuffer.push(commandString);
+        
+        // Keep only last 50 entries
+        if (sentCommandsBuffer.length > 50) {
+            sentCommandsBuffer.shift();
+        }
+        
+        sentDataDisplay.textContent = sentCommandsBuffer.join('\n\n');
+        sentDataDisplay.scrollTop = sentDataDisplay.scrollHeight;
+    }
+    
     // Expose functions to parent window
     window.adminAPI = {
         addRawData,
@@ -447,7 +504,8 @@ Last Packet: ${dataStats.lastPacketTime ? dataStats.lastPacketTime.toLocaleTimeS
         addProcessedData,
         addConnectionInfo,
         updateDataStats,
-        updateSystemStatus
+        updateSystemStatus,
+        addSentCommand
     };
 });
 

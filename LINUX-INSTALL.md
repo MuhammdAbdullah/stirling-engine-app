@@ -205,3 +205,4 @@ Delete the extracted folder:
 rm -rf ~/Downloads/stirling-engine-monitor-1.0.0
 ```
 
+

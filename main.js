@@ -1,13 +1,16 @@
 // This is the main process file for our Electron app
 // It creates and manages the application window
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { SerialPort } = require('serialport');
 const { Worker } = require('worker_threads');
 
 // Keep a global reference of the window object
 let mainWindow;
+let isSafeCloseInProgress = false;
+let isSafeQuitInProgress = false;
 
 // Data processing worker thread (runs on separate CPU core for better performance)
 let dataWorker = null;
@@ -71,14 +74,10 @@ function createWindow() {
     // Load the HTML file
     mainWindow.loadFile('index.html');
 
-    // Open the DevTools in development mode or for debugging
+    // Open the DevTools only when we pass --dev or --debug
     if (process.argv.includes('--dev') || process.argv.includes('--debug')) {
         mainWindow.webContents.openDevTools();
     }
-    
-    // Always enable console logging for debugging (you can disable this later)
-    // For now, let's enable DevTools to see what's happening
-    mainWindow.webContents.openDevTools();
 
     // Send connection status once window is ready to receive messages
     mainWindow.webContents.once('did-finish-load', function() {
@@ -106,6 +105,81 @@ function createWindow() {
                 }
             }, 2000);
         }, 1000);
+    });
+
+    // Emitted when the window is about to close - send heater setpoint 20, OFF, and Aux Output 0 for safety
+    mainWindow.on('close', function (event) {
+        // Send safety commands before window closes
+        if (currentSerialPort && currentSerialPort.isOpen && isSerialConnected) {
+            if (isSafeCloseInProgress) {
+                return;
+            }
+            isSafeCloseInProgress = true;
+            // Prevent window from closing until commands are sent
+            event.preventDefault();
+            
+            try {
+                // First send heater setpoint 20
+                const setpointBytes = [0x3A, 0x42, 20, 0x3B, 0x0A]; // ':' 'B' 20 ';' '\n'
+                currentSerialPort.write(Buffer.from(setpointBytes), function(err) {
+                    if (err) {
+                        console.warn('[MAIN] Failed to send heater setpoint on window close:', err);
+                    } else {
+                        console.log('[MAIN] Sent heater setpoint 20 before window close');
+                    }
+                    
+                    // Then send heater OFF for safety using ':C0;'
+                    const offBytes = [0x3A, 0x43, 0, 0x3B, 0x0A]; // ':' 'C' 0 ';' '\n'
+                    setTimeout(function() {
+                        currentSerialPort.write(Buffer.from(offBytes), function(err) {
+                            if (err) {
+                                console.warn('[MAIN] Failed to send heater OFF (C0) on window close:', err);
+                            } else {
+                                console.log('[MAIN] Sent heater OFF (C0) before window close');
+                            }
+                            
+                            // Then send Aux Output 0 for safety
+                            const auxBytes = [0x3A, 0x58, 0, 0x3B, 0x0A]; // ':' 'X' 0 ';' '\n'
+                            setTimeout(function() {
+                                currentSerialPort.write(Buffer.from(auxBytes), function(err) {
+                                    if (err) {
+                                        console.warn('[MAIN] Failed to send Aux Output 0 on window close:', err);
+                                    } else {
+                                        console.log('[MAIN] Sent Aux Output 0 before window close');
+                                    }
+                                    
+                                    // Finally send hardware ready OFF ':D0;'
+                                    const readyBytes = [0x3A, 0x44, 0, 0x3B, 0x0A]; // ':' 'D' 0 ';' '\n'
+                                    setTimeout(function() {
+                                        currentSerialPort.write(Buffer.from(readyBytes), function(err) {
+                                            if (err) {
+                                                console.warn('[MAIN] Failed to send hardware ready OFF (D0) on window close:', err);
+                                            } else {
+                                            console.log('[MAIN] Sent hardware ready OFF (D0) before window close');
+                                            }
+                                            
+                                            // Now close the window after all commands are sent
+                                            setTimeout(function() {
+                                                isSafeCloseInProgress = false;
+                                                mainWindow.destroy();
+                                            }, 100);
+                                        });
+                                    }, 50);
+                                });
+                            }, 50);
+                        });
+                    }, 50);
+                });
+            } catch (e) {
+                console.warn('[MAIN] Error sending safety commands on window close:', e);
+                isSafeCloseInProgress = false;
+                // Close window even if there's an error
+                mainWindow.destroy();
+            }
+        } else {
+            // No connection, close normally
+            mainWindow.destroy();
+        }
     });
 
     // Emitted when the window is closed
@@ -389,6 +463,64 @@ ipcMain.handle('set-heater', async (event, value) => {
     }
 });
 
+// Heater mode ':C<mode>;\n' where 0=off, 1=on
+ipcMain.handle('set-heater-mode', async (event, mode) => {
+    try {
+        const m = Math.max(0, Math.min(1, parseInt(mode || 0)));
+        if (!currentSerialPort || !currentSerialPort.isOpen) {
+            return { success: false, error: 'Not connected' };
+        }
+        const bytes = [0x3A, 0x43, m, 0x3B, 0x0A]; // ':' 'C' mode ';' '\n'
+        await new Promise((resolve, reject) => {
+            currentSerialPort.write(Buffer.from(bytes), (err) => err ? reject(err) : resolve());
+        });
+        
+        if (adminWindow && !adminWindow.isDestroyed()) {
+            try {
+                adminWindow.webContents.send('sent-command', {
+                    type: 'heater-mode',
+                    value: m,
+                    bytes: bytes,
+                    timestamp: new Date()
+                });
+            } catch (_) {}
+        }
+        
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e && e.message ? e.message : 'Failed to send' };
+    }
+});
+
+// Hardware ready ':D<state>;\n' where 0=not ready, 1=ready
+ipcMain.handle('set-hardware-ready', async (event, state) => {
+    try {
+        const s = Math.max(0, Math.min(1, parseInt(state || 0)));
+        if (!currentSerialPort || !currentSerialPort.isOpen) {
+            return { success: false, error: 'Not connected' };
+        }
+        const bytes = [0x3A, 0x44, s, 0x3B, 0x0A]; // ':' 'D' state ';' '\n'
+        await new Promise((resolve, reject) => {
+            currentSerialPort.write(Buffer.from(bytes), (err) => err ? reject(err) : resolve());
+        });
+        
+        if (adminWindow && !adminWindow.isDestroyed()) {
+            try {
+                adminWindow.webContents.send('sent-command', {
+                    type: 'hardware-ready',
+                    value: s,
+                    bytes: bytes,
+                    timestamp: new Date()
+                });
+            } catch (_) {}
+        }
+        
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e && e.message ? e.message : 'Failed to send' };
+    }
+});
+
 // Aux control ':X<val>;\n' 0..100
 ipcMain.handle('set-aux', async (event, value) => {
     try {
@@ -433,6 +565,43 @@ ipcMain.handle('get-connection-status', async () => {
         });
     }
     return Object.assign(base, { message: 'Not connected' });
+});
+
+ipcMain.handle('save-csv', async (event, payload) => {
+    try {
+        if (!payload || !payload.filePath || !Array.isArray(payload.rows)) {
+            return { success: false, error: 'Invalid CSV data' };
+        }
+        const filePath = payload.filePath;
+        const rows = payload.rows;
+        const folder = path.dirname(filePath);
+        if (!fs.existsSync(folder)) {
+            fs.mkdirSync(folder, { recursive: true });
+        }
+        fs.writeFileSync(filePath, rows.join('\n'), 'utf8');
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e && e.message ? e.message : 'Failed to save CSV file' };
+    }
+});
+
+ipcMain.handle('choose-csv-path', async () => {
+    try {
+        const result = await dialog.showSaveDialog({
+            title: 'Save Stirling Data',
+            defaultPath: path.join(app.getPath('documents'), 'StirlingData.csv'),
+            buttonLabel: 'Save',
+            filters: [
+                { name: 'CSV Files', extensions: ['csv'] }
+            ]
+        });
+        if (result.canceled || !result.filePath) {
+            return { success: false };
+        }
+        return { success: true, filePath: result.filePath };
+    } catch (e) {
+        return { success: false, error: e && e.message ? e.message : 'Failed to open save dialog' };
+    }
 });
 
 // =============================
@@ -585,9 +754,86 @@ app.whenReady().then(function() {
 });
 
 // Clean up worker when app quits
-app.on('before-quit', function() {
-    if (dataWorker) {
-        dataWorker.terminate();
-        dataWorker = null;
+app.on('before-quit', function(event) {
+    // Send heater setpoint 20, OFF, and Aux Output 0 for safety before closing
+    if (currentSerialPort && currentSerialPort.isOpen && isSerialConnected) {
+        if (isSafeQuitInProgress) {
+            return;
+        }
+        isSafeQuitInProgress = true;
+        // Prevent app from quitting until commands are sent
+        event.preventDefault();
+        
+        try {
+            // First send heater setpoint 20
+            const setpointBytes = [0x3A, 0x42, 20, 0x3B, 0x0A]; // ':' 'B' 20 ';' '\n'
+            currentSerialPort.write(Buffer.from(setpointBytes), function(err) {
+                if (err) {
+                    console.warn('[MAIN] Failed to send heater setpoint on close:', err);
+                } else {
+                    console.log('[MAIN] Sent heater setpoint 20 before app close');
+                }
+                
+                // Then send heater OFF for safety using ':C0;'
+                const offBytes = [0x3A, 0x43, 0, 0x3B, 0x0A]; // ':' 'C' 0 ';' '\n'
+                setTimeout(function() {
+                    currentSerialPort.write(Buffer.from(offBytes), function(err) {
+                        if (err) {
+                            console.warn('[MAIN] Failed to send heater OFF (C0) on close:', err);
+                        } else {
+                            console.log('[MAIN] Sent heater OFF (C0) before app close');
+                        }
+                        
+                        // Then send Aux Output 0 for safety
+                        const auxBytes = [0x3A, 0x58, 0, 0x3B, 0x0A]; // ':' 'X' 0 ';' '\n'
+                        setTimeout(function() {
+                            currentSerialPort.write(Buffer.from(auxBytes), function(err) {
+                                if (err) {
+                                    console.warn('[MAIN] Failed to send Aux Output 0 on close:', err);
+                                } else {
+                                    console.log('[MAIN] Sent Aux Output 0 before app close');
+                                }
+                                
+                                // Finally send hardware ready OFF ':D0;'
+                                const readyBytes = [0x3A, 0x44, 0, 0x3B, 0x0A]; // ':' 'D' 0 ';' '\n'
+                                setTimeout(function() {
+                                    currentSerialPort.write(Buffer.from(readyBytes), function(err) {
+                                        if (err) {
+                                            console.warn('[MAIN] Failed to send hardware ready OFF (D0) on close:', err);
+                                        } else {
+                                            console.log('[MAIN] Sent hardware ready OFF (D0) before app close');
+                                        }
+                                        
+                                        // Clean up worker and quit app after all commands are sent
+                                        if (dataWorker) {
+                                            dataWorker.terminate();
+                                            dataWorker = null;
+                                        }
+                                        
+                                        setTimeout(function() {
+                                            app.exit(0);
+                                        }, 100);
+                                    });
+                                }, 50);
+                            });
+                        }, 50);
+                    });
+                }, 50);
+            });
+        } catch (e) {
+            console.warn('[MAIN] Error sending safety commands on close:', e);
+            // Clean up and quit even if there's an error
+            if (dataWorker) {
+                dataWorker.terminate();
+                dataWorker = null;
+            }
+            app.exit(0);
+        }
+    } else {
+        // No connection, quit normally
+        if (dataWorker) {
+            dataWorker.terminate();
+            dataWorker = null;
+        }
     }
 });
