@@ -104,18 +104,19 @@ npm run build-linux
 
 **Important**: The default Linux build is for x64 (Intel/AMD) and will **NOT** work on Raspberry Pi (ARM architecture).
 
-To build for Raspberry Pi, you have two options:
+📖 **See [RASPBERRY-PI-INSTALL.md](RASPBERRY-PI-INSTALL.md) for complete step-by-step instructions.**
 
-**Option 1: Build directly on Raspberry Pi** (Recommended)
+**Quick start on Raspberry Pi:**
 ```bash
 # On your Raspberry Pi
 git clone https://github.com/MuhammdAbdullah/stirling-engine-app.git
 cd stirling-engine-app
 npm install
 bash build-raspberry-pi.sh
+npm start
 ```
 
-**Option 2: Build for specific ARM architecture**
+**Or build for specific ARM architecture:**
 ```bash
 # For Raspberry Pi 3, 4, or 5 (ARM64)
 npm run build-linux-arm64
