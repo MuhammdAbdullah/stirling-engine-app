@@ -41,8 +41,6 @@ jobs:
         run: npm run build-linux-arm64
         env:
           npm_config_arch: arm64
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
@@ -86,8 +84,6 @@ jobs:
         run: npm run build-linux-armv7l
         env:
           npm_config_arch: armv7l
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload ARMv7l artifacts
         uses: actions/upload-artifact@v4
