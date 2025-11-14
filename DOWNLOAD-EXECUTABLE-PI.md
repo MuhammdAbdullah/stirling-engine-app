@@ -37,28 +37,46 @@ uname -m
 
 **Method B: Download via Terminal (on Pi)**
 
+**First, check what releases are available:**
 ```bash
-# Navigate to Downloads folder
+# Check available releases
+curl -s https://api.github.com/repos/MuhammdAbdullah/stirling-engine-app/releases
+```
+
+**Then download the specific file you need:**
+```bash
 cd ~/Downloads
 
 # For Raspberry Pi 3, 4, or 5 (ARM64)
-# Replace "v1.0.0" with the actual version number from GitHub Releases
-wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/download/v1.0.0/Matrix-Stirling-Engine-1.0.0-arm64.AppImage
+# Replace "TAG_NAME" with the actual release tag (e.g., "v1.0.0")
+# Replace "FILENAME" with the actual filename from the releases page
+wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/download/TAG_NAME/FILENAME-arm64.AppImage
 
 # For Raspberry Pi 1, 2, or Zero (ARMv7)
-wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/download/v1.0.0/Matrix-Stirling-Engine-1.0.0-armv7l.AppImage
+wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/download/TAG_NAME/FILENAME-armv7l.AppImage
 ```
 
-**Method C: Download Latest Release Automatically**
+**Method C: Download Latest Release Automatically (When Available)**
 
 ```bash
 cd ~/Downloads
 
-# Get the latest release URL (this finds the latest release automatically)
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/MuhammdAbdullah/stirling-engine-app/releases/latest | grep "browser_download_url.*arm64.AppImage" | cut -d '"' -f 4)
+# This will work once releases are available
+# For ARM64 (Pi 3/4/5)
+LATEST_ARM64=$(curl -s https://api.github.com/repos/MuhammdAbdullah/stirling-engine-app/releases/latest | grep "browser_download_url.*arm64.AppImage" | cut -d '"' -f 4)
+if [ ! -z "$LATEST_ARM64" ]; then
+    wget $LATEST_ARM64
+else
+    echo "No ARM64 release found. Please check GitHub Releases page."
+fi
 
-# Download it
-wget $LATEST_RELEASE
+# For ARMv7 (Pi 1/2/Zero)
+LATEST_ARMV7=$(curl -s https://api.github.com/repos/MuhammdAbdullah/stirling-engine-app/releases/latest | grep "browser_download_url.*armv7l.AppImage" | cut -d '"' -f 4)
+if [ ! -z "$LATEST_ARMV7" ]; then
+    wget $LATEST_ARMV7
+else
+    echo "No ARMv7 release found. Please check GitHub Releases page."
+fi
 ```
 
 ### Step 4: Make it Executable
@@ -173,11 +191,27 @@ Then **log out and log back in** (or restart your Pi).
 ## Quick Commands Summary
 
 **Download from GitHub (when available):**
+
+**Step 1: Check what's available on GitHub Releases page first:**
+- Go to: https://github.com/MuhammdAbdullah/stirling-engine-app/releases
+- Find the release tag (e.g., "v1.0.0") and exact filename
+
+**Step 2: Download using the correct tag and filename:**
 ```bash
 cd ~/Downloads
-wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/download/v1.0.0/Matrix-Stirling-Engine-1.0.0-arm64.AppImage
-chmod +x "Matrix Stirling Engine-"*.AppImage
-./"Matrix Stirling Engine-"*.AppImage
+# Replace TAG_NAME and FILENAME with actual values from GitHub Releases
+wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/download/TAG_NAME/FILENAME
+chmod +x FILENAME
+./FILENAME
+```
+
+**Or use the automatic method (when releases exist):**
+```bash
+cd ~/Downloads
+LATEST=$(curl -s https://api.github.com/repos/MuhammdAbdullah/stirling-engine-app/releases/latest | grep "browser_download_url.*arm64.AppImage" | cut -d '"' -f 4)
+wget $LATEST
+chmod +x *.AppImage
+./*.AppImage
 ```
 
 **Build on Pi:**
@@ -197,9 +231,17 @@ chmod +x "Matrix Stirling Engine-"*.AppImage
 
 ## Troubleshooting
 
-### "File not found" when downloading
+### "File not found" or "404 Not Found" when downloading
 
-The executable doesn't exist on GitHub yet. Use **Option 2: Build on Pi** instead.
+**This means:**
+- The release doesn't exist yet on GitHub
+- The version number or filename is incorrect
+- The release hasn't been created yet
+
+**Solution:**
+1. Check the actual GitHub Releases page: https://github.com/MuhammdAbdullah/stirling-engine-app/releases
+2. If no releases exist, use **Option 2: Build on Pi** instead
+3. If releases exist but download fails, check the exact filename and tag name on the releases page
 
 ### "Permission denied" when running
 
