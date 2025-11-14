@@ -91,13 +91,16 @@ jobs:
           name: raspberry-pi-armv7l
           path: dist/*.AppImage
           retention-days: 30
+          
+   create-release:
+     name: Create Release with Builds
+     needs: [build-arm64, build-armv7l]
+     runs-on: ubuntu-latest
+     if: github.ref == 'refs/heads/main'
+     permissions:
+       contents: write
+     steps:
 
-  create-release:
-    name: Create Release with Builds
-    needs: [build-arm64, build-armv7l]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
       - name: Download ARM64 artifacts
         uses: actions/download-artifact@v4
         with:
