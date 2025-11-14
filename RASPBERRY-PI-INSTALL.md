@@ -8,7 +8,9 @@ Simple step-by-step guide to install the app using pre-built executables from Gi
 
 **Note:** Pre-built executables will be available in GitHub Releases once the automated build system is set up. For now, please use **Method 2: Build from Source** below.
 
-### When Pre-built Executables Are Available:
+📖 **For detailed download instructions, see [DOWNLOAD-EXECUTABLE-PI.md](DOWNLOAD-EXECUTABLE-PI.md)**
+
+### Quick Download Steps (When Available):
 
 1. Go to: **https://github.com/MuhammdAbdullah/stirling-engine-app/releases**
 2. Find the latest release
