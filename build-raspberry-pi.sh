@@ -38,6 +38,10 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
+# Rebuild native modules (serialport) for the current architecture
+echo "Rebuilding native modules (serialport) for ARM architecture..."
+npm rebuild serialport
+
 # Determine which ARM architecture to build for
 if [ "$ARCH" == "aarch64" ] || [ "$ARCH" == "arm64" ]; then
     echo "Building for ARM64 (Raspberry Pi 3, 4, 5)..."

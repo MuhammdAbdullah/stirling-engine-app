@@ -47,7 +47,9 @@
       "lib/**/*",
       "node_modules/chart.js/dist/chart.umd.js",
       "data-worker.js",
-      "stirling-data-parser.js"
+      "stirling-data-parser.js",
+      "node_modules/serialport/**/*",
+      "node_modules/@serialport/**/*"
     ],
     "win": {
       "target": "nsis"
@@ -63,12 +65,7 @@
         "tar.gz"
       ],
       "icon": "assets/android-chrome-512x512.png",
-      "category": "Utility",
-      "arch": [
-        "x64",
-        "arm64",
-        "armv7l"
-      ]
+      "category": "Utility"
     }
   }
 }

@@ -10,7 +10,13 @@
     "!dist/**/*",
     "!*.md",
     "!setup.js",
-    "!install.bat"
+    "!install.bat",
+    "lib/**/*",
+    "node_modules/chart.js/dist/chart.umd.js",
+    "data-worker.js",
+    "stirling-data-parser.js",
+    "node_modules/serialport/**/*",
+    "node_modules/@serialport/**/*"
   ],
   "win": {
     "target": "nsis"
@@ -20,8 +26,13 @@
     "icon": "assets/apple-touch-icon.png"
   },
   "linux": {
-    "target": "AppImage",
-    "icon": "assets/android-chrome-512x512.png"
+    "target": [
+      "AppImage",
+      "deb",
+      "tar.gz"
+    ],
+    "icon": "assets/android-chrome-512x512.png",
+    "category": "Utility"
   }
 }
 
