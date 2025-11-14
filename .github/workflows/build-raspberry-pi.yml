@@ -112,12 +112,21 @@ jobs:
           name: raspberry-pi-armv7l
           path: ./artifacts/armv7l
 
+      - name: List downloaded files
+        run: |
+          echo "ARM64 files:"
+          ls -lh ./artifacts/arm64/ || echo "No ARM64 files found"
+          echo ""
+          echo "ARMv7l files:"
+          ls -lh ./artifacts/armv7l/ || echo "No ARMv7l files found"
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./artifacts/arm64/*
-            ./artifacts/armv7l/*
+            ./artifacts/arm64/*.AppImage
+            ./artifacts/armv7l/*.AppImage
+          fail_on_unmatched_files: false
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }} - Raspberry Pi Builds
           body: |
