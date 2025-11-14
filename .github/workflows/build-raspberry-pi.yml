@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up QEMU for ARM64
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
@@ -43,7 +43,7 @@ jobs:
           npm_config_arch: arm64
 
       - name: Upload ARM64 artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: raspberry-pi-arm64
           path: dist/*.AppImage
@@ -54,15 +54,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up QEMU for ARMv7
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: arm
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
@@ -86,7 +86,7 @@ jobs:
           npm_config_arch: armv7l
 
       - name: Upload ARMv7l artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: raspberry-pi-armv7l
           path: dist/*.AppImage
@@ -99,13 +99,13 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Download ARM64 artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: raspberry-pi-arm64
           path: ./artifacts/arm64
 
       - name: Download ARMv7l artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: raspberry-pi-armv7l
           path: ./artifacts/armv7l
