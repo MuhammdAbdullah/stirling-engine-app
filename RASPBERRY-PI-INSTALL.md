@@ -4,73 +4,28 @@ Simple step-by-step guide to install the app using pre-built executables from Gi
 
 ---
 
-## Method 1: Download Pre-built Executable (Recommended - Easiest)
+## Method 1: Download Pre-built Executable (When Available)
 
-**This is the easiest way - just download and run!**
+**Note:** Pre-built executables will be available in GitHub Releases once the automated build system is set up. For now, please use **Method 2: Build from Source** below.
 
-### Step 1: Find Your Raspberry Pi Model
+### When Pre-built Executables Are Available:
 
-Check which Raspberry Pi you have:
-- **Raspberry Pi 3, 4, or 5** → Use **ARM64** version
-- **Raspberry Pi 1, 2, or Zero** → Use **ARMv7** version
-
-To check your Pi model, run:
-```bash
-uname -m
-```
-- If it shows `aarch64` → You need **ARM64**
-- If it shows `armv7l` → You need **ARMv7**
-
-### Step 2: Download from GitHub
-
-1. Open a web browser on your Raspberry Pi (or download on your computer and transfer it)
-2. Go to: **https://github.com/MuhammdAbdullah/stirling-engine-app/releases**
-3. Find the latest release
-4. Download the AppImage file:
-   - Look for file ending in `-arm64.AppImage` (for Pi 3/4/5)
-   - Or file ending in `-armv7l.AppImage` (for Pi 1/2/Zero)
-
-**Or download directly from terminal:**
-```bash
-# For Raspberry Pi 3, 4, or 5 (ARM64)
-cd ~/Downloads
-wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/latest/download/Matrix-Stirling-Engine-1.0.0-arm64.AppImage
-
-# For Raspberry Pi 1, 2, or Zero (ARMv7)
-cd ~/Downloads
-wget https://github.com/MuhammdAbdullah/stirling-engine-app/releases/latest/download/Matrix-Stirling-Engine-1.0.0-armv7l.AppImage
-```
-
-### Step 3: Make it Executable
-
-```bash
-cd ~/Downloads
-chmod +x "Matrix Stirling Engine-"*.AppImage
-```
-
-### Step 4: Run the App
-
-```bash
-./"Matrix Stirling Engine-"*.AppImage
-```
-
-**That's it!** The app should start.
-
-### Step 5: Fix Serial Port Permissions (One-time setup)
-
-If you get permission errors when connecting hardware, run this once:
-
-```bash
-sudo usermod -a -G dialout $USER
-```
-
-Then **log out and log back in** (or restart your Pi) for the change to take effect.
+1. Go to: **https://github.com/MuhammdAbdullah/stirling-engine-app/releases**
+2. Find the latest release
+3. Download the AppImage file for your Raspberry Pi:
+   - **ARM64** for Raspberry Pi 3, 4, or 5
+   - **ARMv7** for Raspberry Pi 1, 2, or Zero
+4. Make it executable and run:
+   ```bash
+   chmod +x "Matrix Stirling Engine-"*.AppImage
+   ./"Matrix Stirling Engine-"*.AppImage
+   ```
 
 ---
 
-## Method 2: Build from Source (If pre-built isn't available)
+## Method 2: Build from Source (Current Method - Recommended)
 
-Only use this if the pre-built executable isn't available or you need the latest code.
+**This is the current recommended method** - build the app directly on your Raspberry Pi. Pre-built executables will be available in the future once the automated build system is set up.
 
 ### Prerequisites
 
@@ -171,9 +126,7 @@ Check for error messages in the terminal. Make sure you downloaded the correct v
 
 ### "File not found" when downloading
 
-The GitHub Releases page might not have builds yet. In that case:
-- Use Method 2 (Build from Source) instead
-- Or wait for the GitHub Actions workflow to build and release the executables
+Pre-built executables are not yet available. Please use **Method 2: Build from Source** instead. The automated build system will be set up soon to provide pre-built executables.
 
 ---
 
@@ -198,16 +151,7 @@ bash build-raspberry-pi.sh
 
 ## Quick Reference
 
-**Download pre-built (easiest):**
-```bash
-# 1. Download from GitHub Releases
-# 2. Make executable
-chmod +x "Matrix Stirling Engine-"*.AppImage
-# 3. Run
-./"Matrix Stirling Engine-"*.AppImage
-```
-
-**Build from source:**
+**Build from source (current method):**
 ```bash
 # 1. Install Node.js
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
