@@ -39,3 +39,5 @@ tail -10 /tmp/stirling-app.log | grep -i "connected\|status" || tail -5 /tmp/sti
 
 
 
+
+

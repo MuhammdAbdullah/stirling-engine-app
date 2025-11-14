@@ -35,3 +35,5 @@ echo "✓ App launched. Check for connection status in logs above."
 
 
 
+
+

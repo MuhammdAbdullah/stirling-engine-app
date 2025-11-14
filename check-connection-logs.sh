@@ -23,3 +23,5 @@ ps aux | grep -i "Matrix Stirling" | grep -v grep || echo "App not running"
 
 
 
+
+
