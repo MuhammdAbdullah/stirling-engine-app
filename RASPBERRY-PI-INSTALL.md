@@ -1,6 +1,30 @@
 # Installing Matrix Stirling Engine App on Raspberry Pi
 
-This guide explains how to download, build, and run the Matrix Stirling Engine app on your Raspberry Pi.
+This guide explains how to download and run the Matrix Stirling Engine app on your Raspberry Pi.
+
+---
+
+## Quick Start: Download Pre-built Executable (Easiest)
+
+**The easiest way is to download a pre-built executable from GitHub:**
+
+1. Go to: https://github.com/MuhammdAbdullah/stirling-engine-app/releases
+2. Download the AppImage file for your Raspberry Pi:
+   - **ARM64** for Raspberry Pi 3, 4, or 5
+   - **ARMv7** for Raspberry Pi 1, 2, or Zero
+3. Make it executable and run:
+   ```bash
+   chmod +x "Matrix Stirling Engine-"*.AppImage
+   ./"Matrix Stirling Engine-"*.AppImage
+   ```
+
+**That's it!** No building required.
+
+---
+
+## Build from Source (If you need the latest code)
+
+If you want to build from source or the pre-built version isn't available yet:
 
 ---
 
