@@ -35,7 +35,9 @@ Linux/Mac users: install Node.js ≥ 18, then run the same commands (see `LINUX-
 | `npm start` | Run the app in production mode |
 | `npm run dev` | Run with devtools enabled |
 | `npm run build-win` | Build Windows installer (NSIS) |
-| `npm run build-linux` | Build AppImage/DEB/TAR.GZ |
+| `npm run build-linux` | Build AppImage/DEB/TAR.GZ (x64) |
+| `npm run build-linux-arm64` | Build for ARM64 (Raspberry Pi 3/4/5) |
+| `npm run build-linux-armv7l` | Build for ARMv7 (Raspberry Pi 1/2/Zero) |
 | `npm run build-mac` | Build DMG |
 
 Built artifacts land in `dist/`.
@@ -94,11 +96,37 @@ npm run build-win
 # macOS DMG
 npm run build-mac
 
-# Linux AppImage/DEB/TAR.GZ
+# Linux AppImage/DEB/TAR.GZ (x64 - Intel/AMD)
 npm run build-linux
 ```
 
-See the half dozen helper scripts in the repo (`build-on-linux.sh`, `verify-app.sh`, etc.) if you’re packaging on different machines.
+### Building for Raspberry Pi
+
+**Important**: The default Linux build is for x64 (Intel/AMD) and will **NOT** work on Raspberry Pi (ARM architecture).
+
+To build for Raspberry Pi, you have two options:
+
+**Option 1: Build directly on Raspberry Pi** (Recommended)
+```bash
+# On your Raspberry Pi
+git clone https://github.com/MuhammdAbdullah/stirling-engine-app.git
+cd stirling-engine-app
+npm install
+bash build-raspberry-pi.sh
+```
+
+**Option 2: Build for specific ARM architecture**
+```bash
+# For Raspberry Pi 3, 4, or 5 (ARM64)
+npm run build-linux-arm64
+
+# For Raspberry Pi 1, 2, or Zero (ARMv7)
+npm run build-linux-armv7l
+```
+
+**Note**: Building on Raspberry Pi is recommended because the `serialport` native module must be compiled for the target architecture. Cross-compilation from x64 to ARM can be complex.
+
+See the helper scripts in the repo (`build-on-linux.sh`, `build-raspberry-pi.sh`, etc.) if you're packaging on different machines.
 
 ---
 

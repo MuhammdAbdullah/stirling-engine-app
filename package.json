@@ -10,6 +10,8 @@
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux",
+    "build-linux-arm64": "electron-builder --linux --arm64",
+    "build-linux-armv7l": "electron-builder --linux --armv7l",
     "dist": "electron-builder --publish=never",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -61,7 +63,12 @@
         "tar.gz"
       ],
       "icon": "assets/android-chrome-512x512.png",
-      "category": "Utility"
+      "category": "Utility",
+      "arch": [
+        "x64",
+        "arm64",
+        "armv7l"
+      ]
     }
   }
 }
