@@ -46,7 +46,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: raspberry-pi-arm64
-          path: dist/*.AppImage
+          path: dist/*arm64*.AppImage
+          if-no-files-found: error
           retention-days: 30
 
   build-armv7l:
@@ -89,7 +90,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: raspberry-pi-armv7l
-          path: dist/*.AppImage
+          path: dist/*armv7l*.AppImage
+          if-no-files-found: error
           retention-days: 30
 
   create-release:
@@ -119,14 +121,19 @@ jobs:
           echo ""
           echo "ARMv7l files:"
           ls -lh ./artifacts/armv7l/ || echo "No ARMv7l files found"
+          echo ""
+          echo "All AppImage files found:"
+          find ./artifacts -type f -name "*.AppImage" || echo "No AppImage files found"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./artifacts/arm64/*.AppImage
-            ./artifacts/armv7l/*.AppImage
+            ./artifacts/arm64/*arm64*.AppImage
+            ./artifacts/armv7l/*armv7l*.AppImage
           fail_on_unmatched_files: false
+          draft: false
+          prerelease: false
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }} - Raspberry Pi Builds
           body: |
