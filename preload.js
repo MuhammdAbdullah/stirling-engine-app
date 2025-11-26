@@ -32,6 +32,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setHardwareReady: (value) => ipcRenderer.invoke('set-hardware-ready', value),
     // Aux control (0-100%)
     setAux: (value) => ipcRenderer.invoke('set-aux', value),
+    // Calibration - sends data with label M and value 1
+    sendCalibration: () => ipcRenderer.invoke('send-calibration'),
+    // Zero calibration - sends data with label Z and value 1
+    sendZeroCalibration: () => ipcRenderer.invoke('send-zero-calibration'),
+    // Calibration done - sends data with label N and value 1
+    sendCalibrationDone: () => ipcRenderer.invoke('send-calibration-done'),
     getConnectionStatus: () => ipcRenderer.invoke('get-connection-status'),
 
     // CSV saving

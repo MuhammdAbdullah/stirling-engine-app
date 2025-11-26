@@ -122,3 +122,9 @@ Once the GitHub Actions workflow is set up, ARM executables will be automaticall
 - If built on Pi: `~/stirling-engine-app/dist/Matrix Stirling Engine-1.0.0.AppImage`
 - If downloaded: `~/Downloads/Matrix-Stirling-Engine-1.0.0-arm64.AppImage` (or wherever you save it)
 
+
+
+
+
+
+

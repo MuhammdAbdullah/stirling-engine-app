@@ -62,6 +62,11 @@ function initializeUI() {
     const sweepIntervalEl = document.getElementById('sweepInterval');
     const sweepToggle = document.getElementById('sweepToggle');
     const csvToggleButton = document.getElementById('csvToggle');
+    const calibrationButton = document.getElementById('calibrationButton');
+    const calibrationModal = document.getElementById('calibrationModal');
+    const calibrationValue = document.getElementById('calibrationValue');
+    const zeroButton = document.getElementById('zeroButton');
+    const doneButton = document.getElementById('doneButton');
     const themeSelector = document.getElementById('themeSelector');
     let heaterOn = false;
     let currentTheme = 'light';
@@ -106,6 +111,11 @@ function initializeUI() {
     let heaterInitializedOnConnection = false;
     let currentPort = null;
     let stirlingParser = null;
+    
+    // Track calibration modal visibility and buffer incoming 0xAB packets
+    let isCalibrationModalOpen = false;
+    let calibrationDataBuffer = [];
+    let shouldResetGraphsOnReconnect = false;
     
     // Track last valid RPM and Temperature values (don't show 0)
     let lastValidRPM = null;
@@ -227,6 +237,30 @@ function initializeUI() {
         window.electronAPI.setHeaterMode(heaterOn ? 1 : 0);
     }
 
+    function applyHeaterSliderHardwareValue(rawValue) {
+        if (!heaterSlider || !heaterValue) {
+            return;
+        }
+        var val = parseInt(rawValue);
+        if (!isFinite(val)) {
+            val = 20;
+        }
+        val = Math.max(20, Math.min(70, val));
+        heaterSlider.value = String(val);
+        heaterValue.textContent = val + '°C';
+        updateSliderTip();
+    }
+
+    function applyHeaterHardwareValue(rawValue) {
+        heaterOn = rawValue ? true : false;
+        if (heaterToggle) {
+            heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
+            try {
+                heaterToggle.classList.toggle('active', heaterOn);
+            } catch (_) {}
+        }
+    }
+
     function updateSliderTip() {
         if (!heaterSlider || !heaterTip) return;
         var min = parseInt(heaterSlider.min || 0);
@@ -325,6 +359,20 @@ function initializeUI() {
         window.electronAPI.setAux(val);
     }
 
+    function applyAuxHardwareValue(rawValue) {
+        if (!auxSlider || !auxValue) {
+            return;
+        }
+        var val = parseInt(rawValue);
+        if (!isFinite(val)) {
+            val = 0;
+        }
+        val = Math.max(0, Math.min(100, val));
+        auxSlider.value = String(val);
+        auxValue.textContent = val + '%';
+        updateAuxTip();
+    }
+
     // Sweep logic
     let sweepTimer = null;
     let sweepDirection = 1; // 1 up, -1 down
@@ -357,6 +405,17 @@ function initializeUI() {
         csvToggleButton.addEventListener('click', toggleCsvSaving);
         setCsvIndicator(false);
     }
+    if (calibrationButton) {
+        calibrationButton.addEventListener('click', handleCalibrationClick);
+    }
+    if (zeroButton) {
+        zeroButton.addEventListener('click', handleZeroClick);
+    }
+    if (doneButton) {
+        doneButton.addEventListener('click', handleDoneClick);
+    }
+    // Modal can only be closed by clicking the Done button
+    // Removed click-outside and Escape key handlers so user must press Done
     if (adminButton) { adminButton.addEventListener('click', openAdminWindow); }
     
     function setCsvIndicator(active) {
@@ -469,6 +528,228 @@ function initializeUI() {
             await startCsvSaving();
         } else {
             stopCsvSaving();
+        }
+    }
+
+    function handleCalibrationClick() {
+        // Send data with label M and value 1, just like other data
+        if (window.electronAPI && window.electronAPI.sendCalibration) {
+            window.electronAPI.sendCalibration().then(function(result) {
+                // Data sent successfully - no need to show anything
+                // The data will be processed just like incoming data
+            }).catch(function(error) {
+                // Silently handle errors - don't show popup
+                console.warn('Calibration error:', error);
+            });
+        }
+        showCalibrationModal();
+    }
+
+    function handleZeroClick() {
+        // Handle Zero button click
+        // Send data with label Z and value 1, just like other data
+        if (window.electronAPI && window.electronAPI.sendZeroCalibration) {
+            window.electronAPI.sendZeroCalibration().then(function(result) {
+                // Data sent successfully - no need to show anything
+                // The data will be processed just like incoming data
+            }).catch(function(error) {
+                // Silently handle errors - don't show popup
+                console.warn('Zero calibration error:', error);
+            });
+        }
+        // Note: Zero does NOT close the modal - you can click it multiple times
+        // Only the Done button closes the modal
+    }
+
+    function handleDoneClick() {
+        // Handle Done button click
+        // Send data with label N and value 1, just like other data
+        if (window.electronAPI && window.electronAPI.sendCalibrationDone) {
+            window.electronAPI.sendCalibrationDone().then(function(result) {
+                // Data sent successfully - no need to show anything
+                // The data will be processed just like incoming data
+            }).catch(function(error) {
+                // Silently handle errors - don't show popup
+                console.warn('Calibration done error:', error);
+            });
+        }
+        // Close the modal - this hides the Zero and Done buttons
+        closeCalibrationModal();
+    }
+
+    function closeCalibrationModal() {
+        // Hide the calibration modal
+        if (calibrationModal) {
+            calibrationModal.classList.remove('show');
+        }
+        isCalibrationModalOpen = false;
+    }
+
+    function showCalibrationModal() {
+        if (calibrationModal) {
+            calibrationModal.classList.add('show');
+        }
+        isCalibrationModalOpen = true;
+        calibrationDataBuffer = [];
+        if (calibrationValue) {
+            calibrationValue.value = '';
+            calibrationValue.placeholder = 'Waiting for data...';
+        }
+    }
+    
+    // Parse calibration data packets:
+    //  - [0xAB, 0xAB, data1, data2, 0xAB, 0xAB] -> update text box
+    //  - [0xA1, 0xA1, data, 0xA1, 0xA1]        -> close modal when data == 1
+    //  - [0xA2, 0xA2, data, 0xA2, 0xA2]        -> open modal when data == 1
+    //  - [0xC1, 0xC1, data, 0xC1, 0xC1]        -> update Aux slider
+    //  - [0xC2, 0xC2, data, 0xC2, 0xC2]        -> update heater temperature slider
+    //  - [0xEE, 0xEE, data, 0xEE, 0xEE]        -> update heater ON/OFF button
+    function parseCalibrationData(bytes) {
+        // Convert bytes to array if needed
+        const dataArray = Array.isArray(bytes) ? bytes : Array.from(bytes);
+        
+        // Add to buffer
+        calibrationDataBuffer = calibrationDataBuffer.concat(dataArray);
+        
+        // Look for complete packets
+        while (calibrationDataBuffer.length >= 5) {
+            // Find the start marker (either 0xAB, 0xA1, or 0xA2 pairs)
+            let startIndex = -1;
+            let headerType = null;
+            for (let i = 0; i <= calibrationDataBuffer.length - 5; i++) {
+                const first = calibrationDataBuffer[i];
+                const second = calibrationDataBuffer[i + 1];
+                if (first === 0xAB && second === 0xAB) {
+                    startIndex = i;
+                    headerType = 'AB';
+                    break;
+                }
+                if (first === 0xA1 && second === 0xA1) {
+                    startIndex = i;
+                    headerType = 'A1';
+                    break;
+                }
+                if (first === 0xA2 && second === 0xA2) {
+                    startIndex = i;
+                    headerType = 'A2';
+                    break;
+                }
+                if (first === 0xC1 && second === 0xC1) {
+                    startIndex = i;
+                    headerType = 'C1';
+                    break;
+                }
+                if (first === 0xC2 && second === 0xC2) {
+                    startIndex = i;
+                    headerType = 'C2';
+                    break;
+                }
+                if (first === 0xEE && second === 0xEE) {
+                    startIndex = i;
+                    headerType = 'EE';
+                    break;
+                }
+            }
+            
+            if (startIndex === -1) {
+                // No start marker found, keep only the last few bytes
+                calibrationDataBuffer = calibrationDataBuffer.slice(-5);
+                break;
+            }
+            
+            const requiresSixBytes = headerType === 'AB';
+            const requiredLength = requiresSixBytes ? 6 : 5;
+            
+            // Check if we have enough bytes for a complete packet
+            if (calibrationDataBuffer.length < startIndex + requiredLength) {
+                // Not enough bytes yet, keep from start marker
+                calibrationDataBuffer = calibrationDataBuffer.slice(startIndex);
+                break;
+            }
+            
+            // Determine footer positions
+            let footerFirstIndex = requiresSixBytes ? startIndex + 4 : startIndex + 3;
+            let footerSecondIndex = requiresSixBytes ? startIndex + 5 : startIndex + 4;
+            const footerFirst = calibrationDataBuffer[footerFirstIndex];
+            const footerSecond = calibrationDataBuffer[footerSecondIndex];
+            
+            if (headerType === 'AB') {
+                if (footerFirst === 0xAB && footerSecond === 0xAB) {
+                    const dataByte1 = calibrationDataBuffer[startIndex + 2];
+                    const dataByte2 = calibrationDataBuffer[startIndex + 3];
+                    
+                    let intValue = (dataByte1 << 8) | dataByte2;
+                    if (intValue >= 0x8000) {
+                        intValue = intValue - 0x10000;
+                    }
+                    
+                    if (calibrationValue) {
+                        calibrationValue.value = intValue.toString();
+                    }
+                    
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
+                } else {
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+                }
+            } else if (headerType === 'A1') {
+                if (footerFirst === 0xA1 && footerSecond === 0xA1) {
+                    const dataByte = calibrationDataBuffer[startIndex + 2];
+                    
+                    if (dataByte === 1) {
+                        closeCalibrationModal();
+                        calibrationDataBuffer = [];
+                        if (calibrationValue) {
+                            calibrationValue.placeholder = 'Calibration done';
+                            calibrationValue.value = '';
+                        }
+                        break;
+                    } else {
+                        calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
+                    }
+                } else {
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+                }
+            } else if (headerType === 'A2') {
+                if (footerFirst === 0xA2 && footerSecond === 0xA2) {
+                    const dataByte = calibrationDataBuffer[startIndex + 2];
+                    
+                    if (dataByte === 1) {
+                        showCalibrationModal();
+                        calibrationDataBuffer = [];
+                        break;
+                    } else {
+                        calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
+                    }
+                } else {
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+                }
+            } else if (headerType === 'C1') {
+                if (footerFirst === 0xC1 && footerSecond === 0xC1) {
+                    const dataByte = calibrationDataBuffer[startIndex + 2];
+                    applyAuxHardwareValue(dataByte);
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
+                } else {
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+                }
+            } else if (headerType === 'C2') {
+                if (footerFirst === 0xC2 && footerSecond === 0xC2) {
+                    const dataByte = calibrationDataBuffer[startIndex + 2];
+                    applyHeaterSliderHardwareValue(dataByte);
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
+                } else {
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+                }
+            } else if (headerType === 'EE') {
+                if (footerFirst === 0xEE && footerSecond === 0xEE) {
+                    const dataByte = calibrationDataBuffer[startIndex + 2];
+                    applyHeaterHardwareValue(dataByte);
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
+                } else {
+                    calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+                }
+            } else {
+                calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
+            }
         }
     }
 
@@ -1314,10 +1595,13 @@ function initializeUI() {
             }
             
             // Keep raw data listener for admin window if needed (fallback)
+            // Also use it to parse calibration data packets (0xAB ... 0xAB format)
             if (window.electronAPI.onRawData) {
                 window.electronAPI.onRawData(function(event, bytes) {
                     // Raw data processing moved to worker thread for better performance
                     // This listener can be used for admin/debugging purposes
+                    
+                    parseCalibrationData(bytes);
                 });
             }
         }
@@ -1363,6 +1647,41 @@ function initializeUI() {
             recordCsvPacket(parsedData);
         });
     }
+
+    function resetChartsAndData() {
+        try {
+            temperatureData.length = 0;
+            timeLabels.length = 0;
+            pressureData.length = 0;
+            volumeData.length = 0;
+            rpmData.length = 0;
+            heaterTempData.length = 0;
+            pressureTimeLabels.length = 0;
+            pressureTimeValues.length = 0;
+            volumeTimeLabels.length = 0;
+            volumeTimeValues.length = 0;
+            pvPoints = [];
+            dataPointCounter = 0;
+            if (dataCount) {
+                dataCount.textContent = '0';
+            }
+            if (chart && chart.data && chart.data.datasets && chart.data.datasets[0]) {
+                chart.update('none');
+            }
+            if (pvChart && pvChart.data && pvChart.data.datasets && pvChart.data.datasets[0]) {
+                pvChart.data.datasets[0].data = pvPoints;
+                pvChart.update('none');
+            }
+            if (pressureChart) {
+                pressureChart.update('none');
+            }
+            if (volumeChart) {
+                volumeChart.update('none');
+            }
+        } catch (e) {
+            console.warn('[UI] Error resetting charts/data:', e);
+        }
+    }
     
     function updateDataDisplay(parsedData) {
         // Update status text
@@ -1385,6 +1704,11 @@ function initializeUI() {
         updateSystemStatus(status);
         
         if (status.connected) {
+            if (shouldResetGraphsOnReconnect) {
+                resetChartsAndData();
+                shouldResetGraphsOnReconnect = false;
+            }
+            
             const deviceInfo = status.deviceType ? ` (${status.deviceType})` : '';
             const portInfo = status.port ? ` on ${status.port}` : '';
             statusText.textContent = `Connected${deviceInfo}${portInfo}`;
@@ -1428,6 +1752,11 @@ function initializeUI() {
                 // Connected silently
             }
         } else {
+            if (wasConnected && !status.connected) {
+                shouldResetGraphsOnReconnect = true;
+                stopCsvSaving();
+            }
+            
             // Reset initialization flag when disconnected
             heaterInitializedOnConnection = false;
             if (window.electronAPI && window.electronAPI.setHardwareReady) {

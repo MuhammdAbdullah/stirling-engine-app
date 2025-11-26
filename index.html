@@ -53,6 +53,7 @@
                             <button id="sweepToggle" class="btn btn-connect">Start Sweep</button>
                             <div class="csv-inline-group">
                                 <button id="csvToggle" class="btn btn-start">Start CSV Save</button>
+                                <button id="calibrationButton" class="btn btn-connect">Calibration</button>
                             </div>
                         </div>
                     </div>
@@ -130,6 +131,18 @@
                 <button id="passwordSubmitBtn" class="btn btn-submit">Submit</button>
             </div>
             <div id="passwordError" class="password-error" style="display:none;">Incorrect password!</div>
+        </div>
+    </div>
+
+    <!-- Calibration Modal -->
+    <div id="calibrationModal" class="password-modal">
+        <div class="password-modal-content">
+            <h3>Calibration</h3>
+            <input type="text" id="calibrationValue" readonly placeholder="Waiting for data..." />
+            <div class="password-modal-buttons">
+                <button id="zeroButton" class="btn btn-connect">Zero</button>
+                <button id="doneButton" class="btn btn-submit">Done</button>
+            </div>
         </div>
     </div>
 

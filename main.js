@@ -349,6 +349,15 @@ function attemptConnection(portPath, resolve) {
                         }
                     }
                     
+                    // Forward raw data to main window for calibration parsing
+                    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+                        try {
+                            mainWindow.webContents.send('raw-data', payload);
+                        } catch (e) {
+                            // Window might be closing, ignore
+                        }
+                    }
+                    
                     // Also forward raw data to admin window if needed
                     if (adminWindow && !adminWindow.isDestroyed() && !adminWindow.webContents.isDestroyed()) {
                         try {
@@ -549,6 +558,90 @@ ipcMain.handle('set-aux', async (event, value) => {
     } catch (e) {
         return { success: false, error: e && e.message ? e.message : 'Failed to send' };
     }
+});
+
+// Helper to send calibration commands over serial (labels M, Z, N)
+async function sendCalibrationSerialCommand(labelByte) {
+    try {
+        if (!currentSerialPort || !currentSerialPort.isOpen) {
+            return { success: false, error: 'Not connected' };
+        }
+        const bytes = [0x3A, labelByte, 0x01, 0x3B, 0x0A]; // ':' label 1 ';' '\n'
+        await new Promise((resolve, reject) => {
+            currentSerialPort.write(Buffer.from(bytes), (err) => err ? reject(err) : resolve());
+        });
+        
+        if (adminWindow && !adminWindow.isDestroyed()) {
+            try {
+                adminWindow.webContents.send('sent-command', {
+                    type: 'calibration',
+                    labelByte: labelByte,
+                    bytes: bytes,
+                    timestamp: new Date()
+                });
+            } catch (_) {}
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e && e.message ? e.message : 'Failed to send' };
+    }
+}
+
+function sendCalibrationPacketToRenderer(labelChar) {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+        return false;
+    }
+    const packet = {
+        label: labelChar,
+        value: 1,
+        pressureReadings: [],
+        volumeReadings: [],
+        rpm: 0,
+        heaterTemperature: 0,
+        timestamp: new Date()
+    };
+    try {
+        mainWindow.webContents.send('stirling-data', [packet]);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Send calibration data with label M and value 1
+ipcMain.handle('send-calibration', async () => {
+    const serialResult = await sendCalibrationSerialCommand(0x4D); // 'M'
+    if (!serialResult.success) {
+        return serialResult;
+    }
+    if (!sendCalibrationPacketToRenderer('M')) {
+        return { success: false, error: 'Window not available' };
+    }
+    return { success: true };
+});
+
+// Send zero calibration data with label Z and value 1
+ipcMain.handle('send-zero-calibration', async () => {
+    const serialResult = await sendCalibrationSerialCommand(0x5A); // 'Z'
+    if (!serialResult.success) {
+        return serialResult;
+    }
+    if (!sendCalibrationPacketToRenderer('Z')) {
+        return { success: false, error: 'Window not available' };
+    }
+    return { success: true };
+});
+
+// Send calibration done data with label N and value 1
+ipcMain.handle('send-calibration-done', async () => {
+    const serialResult = await sendCalibrationSerialCommand(0x4E); // 'N'
+    if (!serialResult.success) {
+        return serialResult;
+    }
+    if (!sendCalibrationPacketToRenderer('N')) {
+        return { success: false, error: 'Window not available' };
+    }
+    return { success: true };
 });
 
 // Provide current connection status on demand
