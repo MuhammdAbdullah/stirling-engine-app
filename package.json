@@ -2,6 +2,7 @@
   "name": "stirling-engine-monitor",
   "version": "1.0.0",
   "description": "A simple Electron app for monitoring Stirling Engine temperature data with Chart.js",
+  "homepage": "https://github.com/yourusername/stirling-engine-monitor",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

@@ -18,6 +18,14 @@ body {
     width: 100%;
     margin: 0 auto;
     padding: 20px 24px;
+    min-width: 0; /* Allow shrinking */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px 12px;
+    }
 }
 
 header {
@@ -69,28 +77,63 @@ main {
     padding: 30px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     width: 100%;
-    overflow: hidden;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+    overflow-y: auto; /* Allow vertical scroll if needed */
+    min-width: 0; /* Allow shrinking */
+}
+
+@media (max-width: 768px) {
+    main {
+        padding: 15px;
+    }
 }
 
 .chart-container {
     background: #f8f9fa;
     border-radius: 10px;
-    padding: 20px;
+    padding: 15px 10px 25px 10px; /* More bottom padding for axis labels */
     margin-bottom: 30px;
     border: 2px solid #e9ecef;
     width: 100%;
     position: relative;
     display: flex;
     flex-direction: column;
+    min-width: 0; /* Allow shrinking */
+    min-height: 250px; /* Minimum height to prevent disappearing */
+    overflow: visible; /* Allow axis labels to show */
+}
+
+/* Extra padding for PV chart on small screens */
+#pvContainer {
+    padding-bottom: 30px; /* Extra space for rotated Volume axis labels */
+}
+
+@media (max-width: 600px) {
+    .chart-container {
+        padding: 10px 5px 30px 5px; /* Even more bottom padding on very small screens */
+        min-height: 280px;
+    }
+    #pvContainer {
+        padding-bottom: 40px; /* Extra space for rotated labels on mobile */
+    }
 }
 
 /* Two-column layout: PV left (square), time charts right that share height */
 .charts-grid {
-    --pv-col-width: clamp(320px, 35vw, 460px);
+    --pv-col-width: clamp(280px, 35vw, 460px);
     display: grid;
     grid-template-columns: var(--pv-col-width) 1fr;
     gap: 20px;
     align-items: stretch;
+    min-width: 0; /* Allow grid to shrink */
+}
+
+/* Stack charts vertically on narrow screens */
+@media (max-width: 900px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+        --pv-col-width: 100%;
+    }
 }
 
 .admin-top-right {
@@ -101,6 +144,20 @@ main {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap; /* Allow wrapping on narrow screens */
+    max-width: calc(100% - 40px); /* Prevent overflow */
+}
+
+/* Move admin controls below header on very narrow screens */
+@media (max-width: 600px) {
+    .admin-top-right {
+        position: relative;
+        top: auto;
+        right: auto;
+        justify-content: center;
+        margin: 10px 0;
+        width: 100%;
+    }
 }
 .theme-selector {
     padding: 6px 12px;
@@ -145,6 +202,19 @@ main {
     grid-template-columns: 1fr auto;
     gap: 20px;
     align-items: start;
+    min-width: 0; /* Allow grid to shrink */
+}
+
+/* Stack control panel on narrow screens */
+@media (max-width: 1000px) {
+    .control-panel-grid {
+        grid-template-columns: 1fr;
+    }
+    .control-panel-right {
+        flex-direction: row;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
 }
 .control-panel-left {
     display: flex;
@@ -171,12 +241,15 @@ main {
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
+    flex-wrap: wrap; /* Allow wrapping */
+    min-width: 0; /* Allow shrinking */
 }
 .csv-inline-group {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: 10px;
+    flex-wrap: wrap; /* Allow wrapping */
 }
 #heaterSlider, #auxSlider { 
     width: 100%; 
@@ -231,7 +304,15 @@ main {
     border: none;
 }
 
-.slider-row label { min-width: 160px; }
+.slider-row label { 
+    min-width: 160px; 
+    flex-shrink: 0; /* Prevent label from shrinking */
+}
+@media (max-width: 600px) {
+    .slider-row label {
+        min-width: 140px;
+    }
+}
 
 .slider-row { position: relative; }
 .slider-tip {
@@ -254,9 +335,11 @@ main {
 
 .num-input {
     width: 80px;
+    min-width: 60px; /* Prevent from getting too small */
     padding: 6px 8px;
     border: 1px solid #ced4da;
     border-radius: 6px;
+    flex-shrink: 0; /* Prevent input from shrinking */
 }
 .tile {
     background: white;
@@ -291,7 +374,13 @@ main {
 }
 
 /* Ensure canvases expand to their containers */
-#pvChart, #pressureTimeChart, #volumeTimeChart { width: 100%; display: block; }
+#pvChart, #pressureTimeChart, #volumeTimeChart { 
+    width: 100% !important; 
+    height: 100% !important;
+    display: block;
+    min-height: 200px; /* Minimum height */
+    max-height: 100%; /* Don't exceed container */
+}
 
 .control-panel, .info-tiles { width: 100%; max-width: 100%; overflow: hidden; }
 
@@ -311,9 +400,14 @@ main {
 }
 .time-col .time-cell {
     flex: 1 1 0;
-    min-height: 0;
-    height: 0; /* allows flex to divide available height equally */
-    overflow: hidden;
+    min-height: 200px; /* Minimum height for each time chart */
+    overflow: visible; /* Allow axis labels to show */
+}
+
+@media (max-width: 600px) {
+    .time-col .time-cell {
+        min-height: 180px; /* Smaller minimum on mobile */
+    }
 }
 
 .controls {
@@ -333,6 +427,16 @@ main {
     cursor: pointer;
     transition: all 0.3s ease;
     min-width: 120px;
+    flex-shrink: 0; /* Prevent buttons from shrinking */
+    white-space: nowrap; /* Prevent text wrapping in buttons */
+}
+
+@media (max-width: 600px) {
+    .btn {
+        min-width: 100px;
+        padding: 10px 16px;
+        font-size: 0.9rem;
+    }
 }
 
 .btn:hover {
@@ -683,7 +787,7 @@ main {
     }
     
     main {
-        padding: 20px;
+        padding: 15px;
     }
     
     .controls {
@@ -702,10 +806,20 @@ main {
 
     /* Stack charts vertically on small screens */
     .charts-grid {
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
     .charts-left {
-        flex: 1 1 auto;
+        width: 100%;
+    }
+    
+    /* Make sweep row stack vertically on very small screens */
+    .sweep-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .csv-inline-group {
+        margin-left: 0;
+        width: 100%;
     }
 }
 

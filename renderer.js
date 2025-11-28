@@ -350,8 +350,21 @@ function initializeUI() {
         auxTip.textContent = String(val);
     }
 
-    // Keep tips positioned on resize
-    window.addEventListener('resize', function(){ updateSliderTip(); updateAuxTip(); });
+    // Keep tips positioned on resize and resize charts
+    window.addEventListener('resize', function(){ 
+        updateSliderTip(); 
+        updateAuxTip();
+        // Resize charts to ensure proper display
+        if (pvChart) {
+            pvChart.resize();
+        }
+        if (pressureChart) {
+            pressureChart.resize();
+        }
+        if (volumeChart) {
+            volumeChart.resize();
+        }
+    });
 
     function sendAuxCommand() {
         if (!window.electronAPI || !window.electronAPI.setAux) return;
@@ -1107,26 +1120,61 @@ function initializeUI() {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 10,
+                        top: 10,
+                        bottom: 20
+                    }
+                },
                 scales: {
                     x: {
-                        title: { display: true, text: 'Volume (mm³)', font: { size: 14, weight: 'bold' } },
+                        title: { 
+                            display: true, 
+                            text: 'Volume (mm³)', 
+                            font: { size: 14, weight: 'bold' },
+                            padding: { top: 10, bottom: 5 }
+                        },
                         grid: { color: 'rgba(0,0,0,0.1)' },
                         ticks: {
                             callback: function(value) {
                                 return formatMm3(toMm3(value));
-                            }
-                        }
+                            },
+                            maxRotation: 45,
+                            minRotation: 45,
+                            padding: 5,
+                            autoSkip: true,
+                            maxTicksLimit: 8
+                        },
+                        position: 'bottom'
                     },
                     y: {
-                        title: { display: true, text: 'Pressure', font: { size: 14, weight: 'bold' } },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
+                        title: { 
+                            display: true, 
+                            text: 'Pressure', 
+                            font: { size: 14, weight: 'bold' },
+                            padding: { left: 10, right: 5 }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: {
+                            padding: 5,
+                            autoSkip: true,
+                            maxTicksLimit: 8
+                        },
+                        position: 'left'
                     }
                 },
                 plugins: {
                     legend: {
                         display: true,
                         position: 'top',
-                        labels: { font: { size: 14, weight: 'bold' } }
+                        labels: { 
+                            font: { size: 14, weight: 'bold' },
+                            padding: 10,
+                            boxWidth: 15,
+                            boxHeight: 15
+                        }
                     },
                     tooltip: {
                         callbacks: {
