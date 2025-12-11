@@ -6,32 +6,53 @@
     box-sizing: border-box;
 }
 
+html {
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #000000;
     color: #333;
     min-height: 100vh;
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
     max-width: 100%;
     width: 100%;
     margin: 0 auto;
-    padding: 20px 24px;
+    padding: clamp(10px, 2vw, 24px);
     min-width: 0; /* Allow shrinking */
     overflow-x: hidden; /* Prevent horizontal scroll */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 @media (max-width: 768px) {
     .container {
-        padding: 10px 12px;
+        padding: clamp(8px, 1.5vw, 12px);
+    }
+    
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
     }
 }
 
 header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: clamp(15px, 3vh, 30px);
     color: white;
+    flex-shrink: 0;
 }
 .header-row {
     display: flex;
@@ -74,33 +95,39 @@ header {
 main {
     background: #333333;
     border-radius: 15px;
-    padding: 30px;
+    padding: clamp(15px, 3vw, 30px);
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     width: 100%;
     overflow-x: hidden; /* Prevent horizontal scroll */
     overflow-y: auto; /* Allow vertical scroll if needed */
     min-width: 0; /* Allow shrinking */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 @media (max-width: 768px) {
     main {
-        padding: 15px;
+        padding: clamp(10px, 2vw, 15px);
     }
 }
 
 .chart-container {
     background: #f8f9fa;
     border-radius: 10px;
-    padding: 15px 10px 25px 10px; /* More bottom padding for axis labels */
-    margin-bottom: 30px;
+    padding: clamp(10px, 2vw, 15px) clamp(5px, 1vw, 10px) clamp(20px, 3vw, 25px) clamp(5px, 1vw, 10px);
+    margin-bottom: clamp(15px, 3vh, 30px);
     border: 2px solid #e9ecef;
     width: 100%;
     position: relative;
     display: flex;
     flex-direction: column;
     min-width: 0; /* Allow shrinking */
-    min-height: 250px; /* Minimum height to prevent disappearing */
+    min-height: clamp(200px, 30vh, 400px); /* Responsive minimum height */
+    max-height: 100%;
     overflow: visible; /* Allow axis labels to show */
+    flex: 1;
 }
 
 /* Extra padding for PV chart on small screens */
@@ -110,11 +137,11 @@ main {
 
 @media (max-width: 600px) {
     .chart-container {
-        padding: 10px 5px 30px 5px; /* Even more bottom padding on very small screens */
-        min-height: 280px;
+        padding: clamp(8px, 2vw, 10px) clamp(4px, 1vw, 5px) clamp(25px, 4vh, 40px) clamp(4px, 1vw, 5px);
+        min-height: clamp(250px, 35vh, 400px);
     }
     #pvContainer {
-        padding-bottom: 40px; /* Extra space for rotated labels on mobile */
+        padding-bottom: clamp(30px, 5vh, 40px); /* Extra space for rotated labels on mobile */
     }
 }
 
@@ -123,9 +150,11 @@ main {
     --pv-col-width: clamp(280px, 35vw, 460px);
     display: grid;
     grid-template-columns: var(--pv-col-width) 1fr;
-    gap: 20px;
+    gap: clamp(10px, 2vw, 20px);
     align-items: stretch;
     min-width: 0; /* Allow grid to shrink */
+    flex: 1;
+    min-height: 0;
 }
 
 /* Stack charts vertically on narrow screens */
@@ -138,14 +167,14 @@ main {
 
 .admin-top-right {
     position: fixed;
-    top: 14px;
-    right: 20px;
+    top: clamp(10px, 1.5vh, 14px);
+    right: clamp(10px, 2vw, 20px);
     z-index: 1000;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: clamp(5px, 1vw, 10px);
     flex-wrap: wrap; /* Allow wrapping on narrow screens */
-    max-width: calc(100% - 40px); /* Prevent overflow */
+    max-width: calc(100% - clamp(20px, 4vw, 40px)); /* Prevent overflow */
 }
 
 /* Move admin controls below header on very narrow screens */
@@ -160,12 +189,12 @@ main {
     }
 }
 .theme-selector {
-    padding: 6px 12px;
+    padding: clamp(5px, 1vh, 6px) clamp(10px, 2vw, 12px);
     border: 2px solid #007bff;
     border-radius: 6px;
     background: white;
     color: #333;
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     cursor: pointer;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -177,12 +206,19 @@ main {
     border-color: #0056b3;
     box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
 }
-.charts-left { width: 100%; }
+.charts-left { 
+    width: 100%; 
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
 .charts-right {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: clamp(10px, 2vh, 20px);
     min-width: 0;
+    min-height: 0;
+    flex: 1;
 }
 
 .info-tiles {
@@ -195,12 +231,15 @@ main {
     background: #656464;
     border: 2px solid #e9ecef;
     border-radius: 10px;
-    padding: 12px 16px;
+    padding: clamp(10px, 2vw, 16px);
+    flex-shrink: 0;
+    width: 100%;
+    overflow-x: hidden;
 }
 .control-panel-grid {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 20px;
+    gap: clamp(10px, 2vw, 20px);
     align-items: start;
     min-width: 0; /* Allow grid to shrink */
 }
@@ -223,7 +262,7 @@ main {
 .control-panel-right {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: clamp(8px, 1.5vh, 10px);
 }
 .control-panel-right .tile {
     padding: 8px 12px;
@@ -239,8 +278,8 @@ main {
 .control-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: clamp(8px, 1.5vw, 10px);
+    margin-bottom: clamp(8px, 1.5vh, 10px);
     flex-wrap: wrap; /* Allow wrapping */
     min-width: 0; /* Allow shrinking */
 }
@@ -305,12 +344,13 @@ main {
 }
 
 .slider-row label { 
-    min-width: 160px; 
+    min-width: clamp(140px, 20vw, 160px); 
     flex-shrink: 0; /* Prevent label from shrinking */
+    font-size: clamp(0.85rem, 2vw, 1rem);
 }
 @media (max-width: 600px) {
     .slider-row label {
-        min-width: 140px;
+        min-width: clamp(120px, 25vw, 140px);
     }
 }
 
@@ -334,34 +374,38 @@ main {
 }
 
 .num-input {
-    width: 80px;
-    min-width: 60px; /* Prevent from getting too small */
-    padding: 6px 8px;
+    width: clamp(60px, 12vw, 80px);
+    min-width: clamp(50px, 10vw, 60px); /* Prevent from getting too small */
+    padding: clamp(5px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
     border: 1px solid #ced4da;
     border-radius: 6px;
     flex-shrink: 0; /* Prevent input from shrinking */
+    font-size: clamp(0.85rem, 2vw, 1rem);
 }
 .tile {
     background: white;
     border: 2px solid #e9ecef;
     border-radius: 10px;
-    padding: 12px 16px;
+    padding: clamp(10px, 2vh, 12px) clamp(12px, 2vw, 16px);
     box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    width: 100%;
+    box-sizing: border-box;
 }
 .tile-label {
-    font-size: 0.9rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
     color: #6c757d;
-    margin-bottom: 6px;
+    margin-bottom: clamp(4px, 0.8vh, 6px);
 }
 .tile-value {
-    font-size: 1.6rem;
+    font-size: clamp(1.2rem, 4vw, 1.6rem);
     font-weight: 700;
     color: #007bff;
 }
 .work-display {
-    margin-top: 10px;
+    margin-top: clamp(8px, 1.5vh, 10px);
     font-weight: 600;
     color: #495057;
+    font-size: clamp(0.85rem, 2vw, 1rem);
 }
 
 #temperatureChart {
@@ -378,8 +422,9 @@ main {
     width: 100% !important; 
     height: 100% !important;
     display: block;
-    min-height: 200px; /* Minimum height */
+    min-height: clamp(180px, 25vh, 300px); /* Responsive minimum height */
     max-height: 100%; /* Don't exceed container */
+    object-fit: contain;
 }
 
 .control-panel, .info-tiles { width: 100%; max-width: 100%; overflow: hidden; }
@@ -397,16 +442,20 @@ main {
     flex-direction: column;
     min-height: 0;
     height: 100%;
+    flex: 1;
 }
 .time-col .time-cell {
     flex: 1 1 0;
-    min-height: 200px; /* Minimum height for each time chart */
+    min-height: clamp(180px, 25vh, 300px); /* Responsive minimum height */
     overflow: visible; /* Allow axis labels to show */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 @media (max-width: 600px) {
     .time-col .time-cell {
-        min-height: 180px; /* Smaller minimum on mobile */
+        min-height: clamp(160px, 22vh, 250px); /* Responsive minimum on mobile */
     }
 }
 
@@ -419,23 +468,23 @@ main {
 }
 
 .btn {
-    padding: 12px 24px;
+    padding: clamp(10px, 2vh, 12px) clamp(16px, 3vw, 24px);
     border: none;
     border-radius: 8px;
-    font-size: 1rem;
+    font-size: clamp(0.85rem, 2vw, 1rem);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    min-width: 120px;
+    min-width: clamp(100px, 15vw, 120px);
     flex-shrink: 0; /* Prevent buttons from shrinking */
     white-space: nowrap; /* Prevent text wrapping in buttons */
 }
 
 @media (max-width: 600px) {
     .btn {
-        min-width: 100px;
-        padding: 10px 16px;
-        font-size: 0.9rem;
+        min-width: clamp(90px, 18vw, 100px);
+        padding: clamp(8px, 1.5vh, 10px) clamp(12px, 2.5vw, 16px);
+        font-size: clamp(0.8rem, 2vw, 0.9rem);
     }
 }
 
@@ -454,8 +503,8 @@ main {
     background: linear-gradient(45deg, #6c757d, #495057);
     color: #fff;
     border: none;
-    width: 150px;
-    height: 50px;
+    width: clamp(120px, 20vw, 150px);
+    height: clamp(40px, 6vh, 50px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -585,17 +634,19 @@ main {
 
 /* System Status Banner Styles */
 .system-status-banner {
-    margin: 10px 0 10px 0; /* now sits below header */
-    padding: 10px 20px;
+    margin: clamp(8px, 1.5vh, 10px) 0;
+    padding: clamp(8px, 1.5vh, 10px) clamp(15px, 3vw, 20px);
     border-radius: 0; /* thin strip look */
     display: flex;
     justify-content: center; /* center the text */
     align-items: center;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: clamp(0.9rem, 2.5vw, 1.1rem);
     background: #333333;
     color: #eeeeee;
     border-bottom: 2px solid #444;
+    flex-shrink: 0;
+    width: 100%;
 }
 
 .system-status-banner.offline {
@@ -633,9 +684,9 @@ main {
 }
 
 .status-text {
-    font-size: 1.2rem;
+    font-size: clamp(1rem, 3vw, 1.2rem);
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: clamp(0.5px, 0.1vw, 1px);
 }
 
 .status-details {
@@ -779,15 +830,15 @@ main {
 /* Responsive design */
 @media (max-width: 768px) {
     .container {
-        padding: 10px;
+        padding: clamp(8px, 1.5vw, 10px);
     }
     
     header h1 {
-        font-size: 2rem;
+        font-size: clamp(1.5rem, 5vw, 2rem);
     }
     
     main {
-        padding: 15px;
+        padding: clamp(10px, 2vw, 15px);
     }
     
     .controls {
@@ -797,7 +848,7 @@ main {
     
     .btn {
         width: 100%;
-        max-width: 200px;
+        max-width: clamp(180px, 40vw, 200px);
     }
     
     .status {
@@ -823,6 +874,49 @@ main {
     }
 }
 
+/* Additional responsive improvements for very small screens */
+@media (max-width: 480px) {
+    .header-logo {
+        max-width: 90vw;
+    }
+    
+    .matrix-logo {
+        height: clamp(20px, 5vw, 28px);
+    }
+    
+    .control-panel-right .tile {
+        min-width: auto;
+        width: 100%;
+    }
+}
+
+/* Ensure proper overflow handling on all screen sizes */
+@media (max-height: 600px) {
+    .chart-container {
+        min-height: clamp(150px, 25vh, 250px);
+    }
+    
+    .time-col .time-cell {
+        min-height: clamp(120px, 20vh, 200px);
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+    main {
+        padding: clamp(10px, 2vh, 20px);
+    }
+    
+    header {
+        margin-bottom: clamp(10px, 2vh, 20px);
+    }
+    
+    .system-status-banner {
+        margin: clamp(5px, 1vh, 10px) 0;
+        padding: clamp(5px, 1vh, 8px) clamp(10px, 2vw, 15px);
+    }
+}
+
 /* Password Modal Styles */
 .password-modal {
     display: none;
@@ -844,31 +938,33 @@ main {
 .password-modal-content {
     background: white;
     border-radius: 15px;
-    padding: 30px;
+    padding: clamp(20px, 4vw, 30px);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    min-width: 350px;
-    max-width: 500px;
+    min-width: clamp(280px, 80vw, 500px);
+    max-width: min(90vw, 500px);
     text-align: center;
+    margin: clamp(10px, 2vh, 20px);
 }
 
 .password-modal-content h3 {
-    margin: 0 0 15px 0;
+    margin: 0 0 clamp(10px, 2vh, 15px) 0;
     color: #333;
-    font-size: 1.5rem;
+    font-size: clamp(1.2rem, 3vw, 1.5rem);
 }
 
 .password-modal-content p {
-    margin: 0 0 20px 0;
+    margin: 0 0 clamp(15px, 3vh, 20px) 0;
     color: #666;
+    font-size: clamp(0.9rem, 2vw, 1rem);
 }
 
 .password-modal-content input {
     width: 100%;
-    padding: 12px;
+    padding: clamp(10px, 2vw, 12px);
     border: 2px solid #e9ecef;
     border-radius: 8px;
-    font-size: 1rem;
-    margin-bottom: 20px;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+    margin-bottom: clamp(15px, 3vh, 20px);
     box-sizing: border-box;
 }
 

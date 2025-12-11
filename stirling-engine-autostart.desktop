@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Matrix Stirling Engine
+Comment=Auto-start Matrix Stirling Engine on login
+Exec=/usr/local/bin/matrix-stirling-engine
+Icon=stirling-engine-monitor
+Terminal=false
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+Hidden=false
+

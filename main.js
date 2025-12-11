@@ -1,7 +1,7 @@
 // This is the main process file for our Electron app
 // It creates and manages the application window
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { SerialPort } = require('serialport');
@@ -52,10 +52,19 @@ app.disableHardwareAcceleration();
 
 // Function to create the main window
 function createWindow() {
-    // Create the browser window
+    // Get the primary display (the main screen)
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    
+    // Calculate window size: use 95% of screen size for better fit
+    // But ensure minimum size of 800x600
+    const windowWidth = Math.max(800, Math.floor(screenWidth * 0.95));
+    const windowHeight = Math.max(600, Math.floor(screenHeight * 0.95));
+    
+    // Create the browser window with screen-appropriate size
     mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: windowWidth,
+        height: windowHeight,
         webPreferences: {
             // Keep this simple and safe: use preload to expose limited APIs
             preload: path.join(__dirname, 'preload.js'),
@@ -67,8 +76,8 @@ function createWindow() {
         title: 'Matrix Stirling Engine'
     });
 
-    // Maximize the window on launch for best visibility
-    try { mainWindow.maximize(); } catch (_) {}
+    // Make fullscreen on launch for best visibility
+    try { mainWindow.setFullScreen(true); } catch (_) {}
     try { mainWindow.setMenuBarVisibility(false); } catch (_) {}
 
     // Load the HTML file
@@ -707,9 +716,18 @@ function createAdminWindow() {
         adminWindow.focus();
         return;
     }
+    
+    // Get screen size for admin window too
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    
+    // Admin window: use 60% of screen size, minimum 600x400
+    const adminWidth = Math.max(600, Math.floor(screenWidth * 0.6));
+    const adminHeight = Math.max(400, Math.floor(screenHeight * 0.6));
+    
     adminWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: adminWidth,
+        height: adminHeight,
         webPreferences: {
             // Admin window can reuse the same preload or none if purely static
             preload: path.join(__dirname, 'preload.js'),

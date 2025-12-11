@@ -1,0 +1,21 @@
+=== Manual Copy Commands ===
+Run these commands ONE AT A TIME in Windows PowerShell.
+Enter password @Matrix123 when prompted for each command.
+
+Command 1: Copy the source archive
+scp "E:\Thermo\Striling Engine\stirling-source.zip" abdullah@192.168.1.96:~/
+
+Command 2: Copy the build script  
+scp "E:\Thermo\Striling Engine\build-on-pi.sh" abdullah@192.168.1.96:~/
+
+Command 3: SSH into the Pi
+ssh abdullah@192.168.1.96
+
+Command 4: Once connected to Pi, run the build script
+bash build-on-pi.sh
+
+The build will take 10-20 minutes. When done, run:
+matrix-stirling-engine
+
+
+
