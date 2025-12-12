@@ -66,7 +66,7 @@ npm install
 
 ```bash
 # The script automatically detects your Pi model
-bash build-raspberry-pi.sh
+bash build-arm64-pi.sh
 ```
 
 Or build manually:
@@ -146,7 +146,7 @@ Pre-built executables are not yet available. Please use **Method 2: Build from S
 cd ~/stirling-engine-app
 git pull
 npm install
-bash build-raspberry-pi.sh
+bash build-arm64-pi.sh
 ```
 
 ---
@@ -163,7 +163,7 @@ sudo apt-get install -y nodejs
 git clone https://github.com/MuhammdAbdullah/stirling-engine-app.git
 cd stirling-engine-app
 npm install
-bash build-raspberry-pi.sh
+bash build-arm64-pi.sh
 npm start
 ```
 

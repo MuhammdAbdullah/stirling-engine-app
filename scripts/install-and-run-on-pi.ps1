@@ -41,9 +41,16 @@ if ($nodeVersion -match "not installed") {
         sudo apt-get install -y nodejs
 "@
     Write-Host "✓ Node.js installed!" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "✓ Node.js already installed: $nodeVersion" -ForegroundColor Green
 }
+Write-Host ""
+
+# Step 2.5: Configure Permissions (Serial Port)
+Write-Host "Step 2.5: Configuring Serial Port Permissions..." -ForegroundColor Yellow
+ssh $piAddress "sudo usermod -a -G dialout `$(whoami)"
+Write-Host "✓ User added to dialout group" -ForegroundColor Green
 Write-Host ""
 
 # Step 3: Clone or update the repository
@@ -82,7 +89,7 @@ Write-Host "Step 5: Building the app..." -ForegroundColor Yellow
 Write-Host "This may take a few minutes. Please wait..." -ForegroundColor Yellow
 ssh $piAddress @"
     cd ~/stirling-engine-app
-    bash build-raspberry-pi.sh
+    bash build-arm64-pi.sh
 "@
 Write-Host "✓ Build completed!" -ForegroundColor Green
 Write-Host ""
@@ -129,7 +136,8 @@ if ($runNow -eq "y" -or $runNow -eq "Y") {
     Write-Host ""
     Write-Host "To stop the app, connect to Pi and run:" -ForegroundColor Yellow
     Write-Host "  pkill -f electron" -ForegroundColor White
-} else {
+}
+else {
     Write-Host ""
     Write-Host "To run the app later, connect to Pi:" -ForegroundColor Yellow
     Write-Host "  ssh $piAddress" -ForegroundColor White

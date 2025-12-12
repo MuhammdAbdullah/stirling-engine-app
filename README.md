@@ -72,3 +72,6 @@ MIT © 2024 Matrix Stirling Engine Team
 
 **Note**: This application includes automatic safety features that ensure hardware is properly shut down when the app closes. Always test safety commands thoroughly before deploying on real equipment.
 
+
+
+

@@ -94,3 +94,6 @@ if ($LASTEXITCODE -eq 0) {
 Remove-Item $zipFile -ErrorAction SilentlyContinue
 Remove-Item "update-script.sh" -ErrorAction SilentlyContinue
 
+
+
+
