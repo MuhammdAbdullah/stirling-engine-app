@@ -6,7 +6,7 @@ if (typeof Chart === 'undefined') {
     console.error('Chart.js is not loaded! Waiting...');
     // Wait for Chart.js
     let attempts = 0;
-    const checkChart = setInterval(function() {
+    const checkChart = setInterval(function () {
         attempts++;
         if (typeof Chart !== 'undefined') {
             clearInterval(checkChart);
@@ -26,7 +26,7 @@ function initializeApp() {
     // Check if DOM is already loaded
     if (document.readyState === 'loading') {
         // DOM is still loading, wait for it
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             initializeUI();
         });
     } else {
@@ -36,11 +36,11 @@ function initializeApp() {
 }
 
 function initializeUI() {
-// Wait for the page to load before running our code
-// DOMContentLoaded already handled in initializeApp
-    
+    // Wait for the page to load before running our code
+    // DOMContentLoaded already handled in initializeApp
+
     // Stirling data parser is already included in index.html
-    
+
     // Get references to HTML elements
     const startButton = document.getElementById('startButton');
     const stopButton = document.getElementById('stopButton');
@@ -77,10 +77,10 @@ function initializeUI() {
     const pvContainer = document.getElementById('pvContainer');
     const pressureTimeContainer = document.getElementById('pressureTimeContainer');
     const volumeTimeContainer = document.getElementById('volumeTimeContainer');
-    
+
     // System status elements
     const systemStatusBanner = document.getElementById('systemStatusBanner');
-    
+
     // Variables to store our data and chart
     let temperatureData = [];
     let timeLabels = [];
@@ -89,7 +89,7 @@ function initializeUI() {
     let pressureChart = null;
     let volumeChart = null;
     let pvPoints = [];
-    
+
     // Chart update throttling for better performance
     let chartUpdatePending = false;
     let pendingChartUpdate = null;
@@ -101,26 +101,26 @@ function initializeUI() {
     let dataPointCounter = 0;
     let lastPVUpdateMs = 0; // no longer used for auto-hide
     let lastChartDrawMs = 0; // throttle chart redraws to ~20 FPS
-    
+
     // Batch data packets for better performance
     let pendingDataPackets = [];
     let dataBatchInterval = null;
-    
+
     // USB Serial Communication variables
     let isConnected = false;
     let heaterInitializedOnConnection = false;
     let currentPort = null;
     let stirlingParser = null;
-    
+
     // Track calibration modal visibility and buffer incoming 0xAB packets
     let isCalibrationModalOpen = false;
     let calibrationDataBuffer = [];
     let shouldResetGraphsOnReconnect = false;
-    
+
     // Track last valid RPM and Temperature values (don't show 0)
     let lastValidRPM = null;
     let lastValidTemperature = null;
-    
+
     // Data storage for Stirling Engine
     let pressureData = [];
     let volumeData = [];
@@ -133,12 +133,12 @@ function initializeUI() {
     let lastCsvRpm = '';
     let lastCsvPressure = '';
     let lastCsvVolume = '';
-    
+
     // Asynchronous CSV logging queue
     let csvPacketQueue = [];
     let csvProcessingInterval = null;
     let csvPacketsProcessed = 0;
-    
+
     function toMm3(valueInM3) {
         return valueInM3 * 1000000000;
     }
@@ -154,8 +154,8 @@ function initializeUI() {
         var rounded = Math.round(numberValue);
         return rounded.toLocaleString();
     }
-    
-    
+
+
     // Initialize the chart when the page loads (temperature chart removed)
     if (chartCanvas) {
         initializeChart();
@@ -165,15 +165,15 @@ function initializeUI() {
     initializeVolumeChart();
 
     // Always show charts
-    try { if (pvContainer) pvContainer.style.display = 'block'; } catch (_) {}
-    try { if (pressureTimeContainer) pressureTimeContainer.style.display = 'block'; } catch (_) {}
-    try { if (volumeTimeContainer) volumeTimeContainer.style.display = 'block'; } catch (_) {}
-    
+    try { if (pvContainer) pvContainer.style.display = 'block'; } catch (_) { }
+    try { if (pressureTimeContainer) pressureTimeContainer.style.display = 'block'; } catch (_) { }
+    try { if (volumeTimeContainer) volumeTimeContainer.style.display = 'block'; } catch (_) { }
+
     // Initialize Stirling data parser
     if (typeof StirlingDataParser !== 'undefined') {
         stirlingParser = new StirlingDataParser();
     }
-    
+
     // Set up button event listeners
     if (startButton) startButton.addEventListener('click', startMonitoring);
     if (stopButton) stopButton.addEventListener('click', stopMonitoring);
@@ -186,23 +186,23 @@ function initializeUI() {
         heaterValue.textContent = '20°C';
         updateSliderTip();
         let sliderDebounce = null;
-        heaterSlider.addEventListener('input', function() {
+        heaterSlider.addEventListener('input', function () {
             heaterValue.textContent = heaterSlider.value + '°C';
             updateSliderTip();
             if (sliderDebounce) clearTimeout(sliderDebounce);
-            sliderDebounce = setTimeout(function(){
+            sliderDebounce = setTimeout(function () {
                 sendHeaterSetpoint();
             }, 150);
         });
         // Show tip on hover with cursor position
-        heaterSlider.addEventListener('mousemove', function(e) {
+        heaterSlider.addEventListener('mousemove', function (e) {
             var row = heaterSlider.closest('.slider-row');
             if (row) {
                 row.classList.add('active');
             }
             updateSliderTipFromEvent(e);
         });
-        heaterSlider.addEventListener('mouseleave', function(e) {
+        heaterSlider.addEventListener('mouseleave', function (e) {
             var row = heaterSlider.closest('.slider-row');
             if (row) {
                 row.classList.remove('active');
@@ -211,11 +211,11 @@ function initializeUI() {
     }
     if (heaterToggle) {
         // reflect initial state
-        if (heaterOn) { try { heaterToggle.classList.add('active'); } catch(_){} }
-        heaterToggle.addEventListener('click', function() {
+        if (heaterOn) { try { heaterToggle.classList.add('active'); } catch (_) { } }
+        heaterToggle.addEventListener('click', function () {
             heaterOn = !heaterOn;
             heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
-            try { heaterToggle.classList.toggle('active', heaterOn); } catch(_){}
+            try { heaterToggle.classList.toggle('active', heaterOn); } catch (_) { }
             sendHeaterMode();
             if (heaterOn) {
                 sendHeaterSetpoint();
@@ -257,7 +257,7 @@ function initializeUI() {
             heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
             try {
                 heaterToggle.classList.toggle('active', heaterOn);
-            } catch (_) {}
+            } catch (_) { }
         }
     }
 
@@ -274,7 +274,7 @@ function initializeUI() {
         heaterTip.style.left = x + 'px';
         heaterTip.textContent = String(val);
     }
-    
+
     function updateSliderTipFromEvent(e) {
         if (!heaterSlider || !heaterTip) return;
         var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
@@ -296,24 +296,26 @@ function initializeUI() {
         auxSlider.value = 0;
         auxValue.textContent = '0%';
         updateAuxTip();
+        updateAuxSliderFill(0);
         let auxDebounce = null;
-        auxSlider.addEventListener('input', function(){
+        auxSlider.addEventListener('input', function () {
             auxValue.textContent = auxSlider.value + '%';
             updateAuxTip();
+            updateAuxSliderFill(auxSlider.value);
             if (auxDebounce) clearTimeout(auxDebounce);
-            auxDebounce = setTimeout(function(){
+            auxDebounce = setTimeout(function () {
                 sendAuxCommand();
             }, 150);
         });
         // Show tip on hover with cursor position
-        auxSlider.addEventListener('mousemove', function(e) {
+        auxSlider.addEventListener('mousemove', function (e) {
             var row = auxSlider.closest('.slider-row');
             if (row) {
                 row.classList.add('active');
             }
             updateAuxTipFromEvent(e);
         });
-        auxSlider.addEventListener('mouseleave', function(e) {
+        auxSlider.addEventListener('mouseleave', function (e) {
             var row = auxSlider.closest('.slider-row');
             if (row) {
                 row.classList.remove('active');
@@ -334,7 +336,24 @@ function initializeUI() {
         auxTip.style.left = x + 'px';
         auxTip.textContent = String(val);
     }
-    
+
+    function updateAuxSliderFill(value) {
+        if (!auxSlider) return;
+        var min = parseInt(auxSlider.min || 0);
+        var max = parseInt(auxSlider.max || 100);
+        var val = parseInt(value || 0);
+
+        // Calculate percentage (0 to 1)
+        var percent = (val - min) / (max - min);
+        // Clamp between 0 and 1
+        percent = Math.max(0, Math.min(1, percent));
+
+        var percentageStr = (percent * 100) + '%';
+
+        // Update background gradient: Blue on left, White on right
+        auxSlider.style.background = `linear-gradient(to right, #007bff 0%, #007bff ${percentageStr}, #fff ${percentageStr}, #fff 100%)`;
+    }
+
     function updateAuxTipFromEvent(e) {
         if (!auxSlider || !auxTip) return;
         var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
@@ -351,8 +370,8 @@ function initializeUI() {
     }
 
     // Keep tips positioned on resize and resize charts
-    window.addEventListener('resize', function(){ 
-        updateSliderTip(); 
+    window.addEventListener('resize', function () {
+        updateSliderTip();
         updateAuxTip();
         // Resize charts to ensure proper display
         if (pvChart) {
@@ -384,6 +403,7 @@ function initializeUI() {
         auxSlider.value = String(val);
         auxValue.textContent = val + '%';
         updateAuxTip();
+        updateAuxSliderFill(val);
     }
 
     // Sweep logic
@@ -401,7 +421,7 @@ function initializeUI() {
         const interval = Math.max(20, parseInt(sweepIntervalEl ? sweepIntervalEl.value : 200));
         sweepToggle.textContent = 'Stop Sweep';
         sweepToggle.classList.add('active');
-        sweepTimer = setInterval(function(){
+        sweepTimer = setInterval(function () {
             if (!auxSlider) return;
             let val = parseInt(auxSlider.value || 0);
             val += step * sweepDirection;
@@ -410,6 +430,7 @@ function initializeUI() {
             auxSlider.value = String(val);
             auxValue.textContent = val + '%';
             updateAuxTip();
+            updateAuxSliderFill(val);
             sendAuxCommand();
         }, interval);
     }
@@ -430,7 +451,7 @@ function initializeUI() {
     // Modal can only be closed by clicking the Done button
     // Removed click-outside and Escape key handlers so user must press Done
     if (adminButton) { adminButton.addEventListener('click', openAdminWindow); }
-    
+
     function setCsvIndicator(active) {
         if (!csvToggleButton) {
             return;
@@ -453,13 +474,13 @@ function initializeUI() {
         lastCsvVolume = '';
         csvPacketQueue = [];
         csvPacketsProcessed = 0;
-        
+
         // Stop the async processing interval
         if (csvProcessingInterval) {
             clearInterval(csvProcessingInterval);
             csvProcessingInterval = null;
         }
-        
+
         if (csvToggleButton) {
             csvToggleButton.textContent = 'Start CSV Save';
         }
@@ -490,10 +511,10 @@ function initializeUI() {
         csvPacketQueue = [];
         csvPacketsProcessed = 0;
         isCsvSaving = true;
-        
+
         // Start async processing of CSV queue
         startCsvAsyncProcessing();
-        
+
         if (csvToggleButton) {
             csvToggleButton.textContent = 'Stop CSV Save';
         }
@@ -504,13 +525,13 @@ function initializeUI() {
         if (!isCsvSaving) {
             return;
         }
-        
+
         // Stop the async processing interval
         if (csvProcessingInterval) {
             clearInterval(csvProcessingInterval);
             csvProcessingInterval = null;
         }
-        
+
         // Process all remaining packets in the queue before saving
         while (csvPacketQueue.length > 0) {
             var packet = csvPacketQueue.shift();
@@ -519,7 +540,7 @@ function initializeUI() {
                 csvPacketsProcessed++;
             }
         }
-        
+
         if (!window.electronAPI || !window.electronAPI.saveCsv) {
             alert('CSV save feature is not available.');
             resetCsvState();
@@ -527,10 +548,10 @@ function initializeUI() {
         }
         var rowsToWrite = csvRows.slice();
         var targetPath = csvFilePath;
-        window.electronAPI.saveCsv(targetPath, rowsToWrite).then(function(result) {
+        window.electronAPI.saveCsv(targetPath, rowsToWrite).then(function (result) {
             // CSV saved silently - no popup
             resetCsvState();
-        }).catch(function(error) {
+        }).catch(function (error) {
             // CSV save error - no popup, just reset state
             resetCsvState();
         });
@@ -547,10 +568,10 @@ function initializeUI() {
     function handleCalibrationClick() {
         // Send data with label M and value 1, just like other data
         if (window.electronAPI && window.electronAPI.sendCalibration) {
-            window.electronAPI.sendCalibration().then(function(result) {
+            window.electronAPI.sendCalibration().then(function (result) {
                 // Data sent successfully - no need to show anything
                 // The data will be processed just like incoming data
-            }).catch(function(error) {
+            }).catch(function (error) {
                 // Silently handle errors - don't show popup
                 console.warn('Calibration error:', error);
             });
@@ -562,10 +583,10 @@ function initializeUI() {
         // Handle Zero button click
         // Send data with label Z and value 1, just like other data
         if (window.electronAPI && window.electronAPI.sendZeroCalibration) {
-            window.electronAPI.sendZeroCalibration().then(function(result) {
+            window.electronAPI.sendZeroCalibration().then(function (result) {
                 // Data sent successfully - no need to show anything
                 // The data will be processed just like incoming data
-            }).catch(function(error) {
+            }).catch(function (error) {
                 // Silently handle errors - don't show popup
                 console.warn('Zero calibration error:', error);
             });
@@ -578,10 +599,10 @@ function initializeUI() {
         // Handle Done button click
         // Send data with label N and value 1, just like other data
         if (window.electronAPI && window.electronAPI.sendCalibrationDone) {
-            window.electronAPI.sendCalibrationDone().then(function(result) {
+            window.electronAPI.sendCalibrationDone().then(function (result) {
                 // Data sent successfully - no need to show anything
                 // The data will be processed just like incoming data
-            }).catch(function(error) {
+            }).catch(function (error) {
                 // Silently handle errors - don't show popup
                 console.warn('Calibration done error:', error);
             });
@@ -609,7 +630,7 @@ function initializeUI() {
             calibrationValue.placeholder = 'Waiting for data...';
         }
     }
-    
+
     // Parse calibration data packets:
     //  - [0xAB, 0xAB, data1, data2, 0xAB, 0xAB] -> update text box
     //  - [0xA1, 0xA1, data, 0xA1, 0xA1]        -> close modal when data == 1
@@ -620,10 +641,10 @@ function initializeUI() {
     function parseCalibrationData(bytes) {
         // Convert bytes to array if needed
         const dataArray = Array.isArray(bytes) ? bytes : Array.from(bytes);
-        
+
         // Add to buffer
         calibrationDataBuffer = calibrationDataBuffer.concat(dataArray);
-        
+
         // Look for complete packets
         while (calibrationDataBuffer.length >= 5) {
             // Find the start marker (either 0xAB, 0xA1, or 0xA2 pairs)
@@ -663,43 +684,43 @@ function initializeUI() {
                     break;
                 }
             }
-            
+
             if (startIndex === -1) {
                 // No start marker found, keep only the last few bytes
                 calibrationDataBuffer = calibrationDataBuffer.slice(-5);
                 break;
             }
-            
+
             const requiresSixBytes = headerType === 'AB';
             const requiredLength = requiresSixBytes ? 6 : 5;
-            
+
             // Check if we have enough bytes for a complete packet
             if (calibrationDataBuffer.length < startIndex + requiredLength) {
                 // Not enough bytes yet, keep from start marker
                 calibrationDataBuffer = calibrationDataBuffer.slice(startIndex);
                 break;
             }
-            
+
             // Determine footer positions
             let footerFirstIndex = requiresSixBytes ? startIndex + 4 : startIndex + 3;
             let footerSecondIndex = requiresSixBytes ? startIndex + 5 : startIndex + 4;
             const footerFirst = calibrationDataBuffer[footerFirstIndex];
             const footerSecond = calibrationDataBuffer[footerSecondIndex];
-            
+
             if (headerType === 'AB') {
                 if (footerFirst === 0xAB && footerSecond === 0xAB) {
                     const dataByte1 = calibrationDataBuffer[startIndex + 2];
                     const dataByte2 = calibrationDataBuffer[startIndex + 3];
-                    
+
                     let intValue = (dataByte1 << 8) | dataByte2;
                     if (intValue >= 0x8000) {
                         intValue = intValue - 0x10000;
                     }
-                    
+
                     if (calibrationValue) {
                         calibrationValue.value = intValue.toString();
                     }
-                    
+
                     calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + requiredLength);
                 } else {
                     calibrationDataBuffer = calibrationDataBuffer.slice(startIndex + 1);
@@ -707,7 +728,7 @@ function initializeUI() {
             } else if (headerType === 'A1') {
                 if (footerFirst === 0xA1 && footerSecond === 0xA1) {
                     const dataByte = calibrationDataBuffer[startIndex + 2];
-                    
+
                     if (dataByte === 1) {
                         closeCalibrationModal();
                         calibrationDataBuffer = [];
@@ -725,7 +746,7 @@ function initializeUI() {
             } else if (headerType === 'A2') {
                 if (footerFirst === 0xA2 && footerSecond === 0xA2) {
                     const dataByte = calibrationDataBuffer[startIndex + 2];
-                    
+
                     if (dataByte === 1) {
                         showCalibrationModal();
                         calibrationDataBuffer = [];
@@ -771,23 +792,23 @@ function initializeUI() {
         if (csvProcessingInterval) {
             return; // Already running
         }
-        
+
         // Process queue every 50ms (20 times per second) - fast enough to not lose data
-        csvProcessingInterval = setInterval(function() {
+        csvProcessingInterval = setInterval(function () {
             processCsvQueue();
         }, 50);
     }
-    
+
     // Process packets from the queue asynchronously
     function processCsvQueue() {
         if (!isCsvSaving || csvPacketQueue.length === 0) {
             return;
         }
-        
+
         // Process up to 100 packets at a time to avoid blocking
         var batchSize = 100;
         var processed = 0;
-        
+
         while (csvPacketQueue.length > 0 && processed < batchSize) {
             var packet = csvPacketQueue.shift();
             if (packet) {
@@ -797,13 +818,13 @@ function initializeUI() {
             }
         }
     }
-    
+
     // Quick function to add packet to queue (non-blocking)
     function recordCsvPacket(parsedData) {
         if (!isCsvSaving || !parsedData) {
             return;
         }
-        
+
         // Quickly update last known values (very fast operation)
         // Only update if values are valid finite numbers
         if (typeof parsedData.rpm === 'number' && parsedData.rpm > 0) {
@@ -826,42 +847,42 @@ function initializeUI() {
                 lastCsvVolume = volumeValue;
             }
         }
-        
+
         // Check if this packet has data worth saving
         var hasPressureVolume = Array.isArray(parsedData.pressureReadings) && parsedData.pressureReadings.length > 0 &&
-                                 Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0;
+            Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0;
         var hasTemperatureRpm = (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) ||
-                                 (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
-        
+            (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
+
         if (hasPressureVolume || hasTemperatureRpm) {
             // Add to queue for async processing (very fast, non-blocking)
             csvPacketQueue.push(parsedData);
-            
+
             // Prevent queue from growing too large (keep last 10000 packets)
             if (csvPacketQueue.length > 10000) {
                 csvPacketQueue.shift(); // Remove oldest if queue too large
             }
         }
     }
-    
+
     // Process a single packet and add to CSV rows (called asynchronously)
     function processCsvPacket(parsedData) {
         if (!parsedData) {
             return;
         }
-        
+
         // Check what data we have in this packet
         var hasPressureVolume = Array.isArray(parsedData.pressureReadings) && parsedData.pressureReadings.length > 0 &&
-                                 Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0;
+            Array.isArray(parsedData.volumeReadings) && parsedData.volumeReadings.length > 0;
         var hasTemperatureRpm = (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) ||
-                                 (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
-        
+            (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
+
         // Only log packets that have pressure/volume data (PV packets)
         // Don't log RT packets that don't have pressure data
         if (!hasPressureVolume) {
             return;
         }
-        
+
         // Get timestamp (only hour, minutes, seconds, and milliseconds)
         var dateObj = (parsedData.timestamp && parsedData.timestamp instanceof Date) ? parsedData.timestamp : new Date();
         var hours = String(dateObj.getHours()).padStart(2, '0');
@@ -869,17 +890,17 @@ function initializeUI() {
         var seconds = String(dateObj.getSeconds()).padStart(2, '0');
         var milliseconds = String(dateObj.getMilliseconds()).padStart(3, '0');
         var timestampText = hours + ':' + minutes + ':' + seconds + '.' + milliseconds;
-        
+
         // Get pressure and volume values from the packet
         var pressureValue = Number(parsedData.pressureReadings[0]);
         var volumeValue = Number(parsedData.volumeReadings[0]);
-        
+
         // Validate that values are finite numbers (reject NaN, Infinity, etc.)
         if (!isFinite(pressureValue) || !isFinite(volumeValue)) {
             // Invalid pressure or volume, skip this packet
             return;
         }
-        
+
         // Get temperature and RPM values (use last known if available)
         var temperatureValue = '';
         var rpmValue = '';
@@ -890,57 +911,57 @@ function initializeUI() {
             temperatureValue = lastCsvTemperature;
             rpmValue = lastCsvRpm;
         }
-        
+
         // Format values for CSV
         var pressureText = (pressureValue === '' || pressureValue === null || pressureValue === undefined) ? '' : String(pressureValue);
         var volumeText = (volumeValue === '' || volumeValue === null || volumeValue === undefined) ? '' : Number(volumeValue).toFixed(2);
         var temperatureText = (temperatureValue === '' || temperatureValue === null || temperatureValue === undefined) ? '' : String(temperatureValue);
         var rpmText = (rpmValue === '' || rpmValue === null || rpmValue === undefined) ? '' : String(rpmValue);
-        
+
         // Add to CSV rows
         csvRows.push(timestampText + ',' + pressureText + ',' + volumeText + ',' + temperatureText + ',' + rpmText);
     }
-    
+
     // Theme selector
     if (themeSelector) {
-        themeSelector.addEventListener('change', function(e) {
+        themeSelector.addEventListener('change', function (e) {
             currentTheme = e.target.value;
             updateChartTheme(currentTheme);
         });
         // Initialize theme on page load
-        setTimeout(function() {
+        setTimeout(function () {
             updateChartTheme(currentTheme);
         }, 100);
     }
-    
+
     // Set up USB serial communication listeners
     setupSerialListeners();
 
     // Immediately sync current connection status once UI is ready
     if (window.electronAPI && window.electronAPI.getConnectionStatus) {
-        window.electronAPI.getConnectionStatus().then(function(status){
+        window.electronAPI.getConnectionStatus().then(function (status) {
             updateConnectionStatus(status);
-        }).catch(function(e){
-            try { console.error('[UI] getConnectionStatus error:', e && e.message ? e.message : e); } catch (e2) {}
+        }).catch(function (e) {
+            try { console.error('[UI] getConnectionStatus error:', e && e.message ? e.message : e); } catch (e2) { }
         });
     }
 
     // Periodically refresh connection status continuously to catch any missed events
-    (function(){
-        var timerId = setInterval(function(){
+    (function () {
+        var timerId = setInterval(function () {
             if (!window.electronAPI || !window.electronAPI.getConnectionStatus) {
                 return;
             }
-            window.electronAPI.getConnectionStatus().then(function(status){
-                try { 
-                } catch (e) {}
+            window.electronAPI.getConnectionStatus().then(function (status) {
+                try {
+                } catch (e) { }
                 updateConnectionStatus(status);
-            }).catch(function(e){
+            }).catch(function (e) {
                 console.error('[UI] Error polling connection status:', e);
             });
         }, 2000); // Poll every 2 seconds as backup
     })();
-    
+
     // Function to update chart theme
     function updateChartTheme(theme) {
         var gridColor, textColor, bgColor;
@@ -953,7 +974,7 @@ function initializeUI() {
             textColor = '#333333';
             bgColor = '#f8f9fa';
         }
-        
+
         if (pvChart) {
             pvChart.options.scales.x.grid.color = gridColor;
             pvChart.options.scales.y.grid.color = gridColor;
@@ -964,7 +985,7 @@ function initializeUI() {
             pvChart.options.plugins.legend.labels.color = textColor;
             pvChart.update('none');
         }
-        
+
         if (pressureChart) {
             pressureChart.options.scales.y.grid.color = gridColor;
             pressureChart.options.scales.y.ticks.color = textColor;
@@ -972,7 +993,7 @@ function initializeUI() {
             pressureChart.options.plugins.legend.labels.color = textColor;
             pressureChart.update('none');
         }
-        
+
         if (volumeChart) {
             volumeChart.options.scales.y.grid.color = gridColor;
             volumeChart.options.scales.y.ticks.color = textColor;
@@ -980,23 +1001,23 @@ function initializeUI() {
             volumeChart.options.plugins.legend.labels.color = textColor;
             volumeChart.update('none');
         }
-        
+
         var chartContainers = document.querySelectorAll('.chart-container');
         for (var i = 0; i < chartContainers.length; i++) {
             chartContainers[i].style.background = bgColor;
             chartContainers[i].style.borderColor = theme === 'dark' ? '#444' : '#e9ecef';
         }
-        
+
         var workDisplay = document.getElementById('workDisplay');
         if (workDisplay) {
             workDisplay.style.color = textColor;
         }
     }
-    
+
     // Function to create and configure the chart
     function initializeChart() {
         const ctx = chartCanvas.getContext('2d');
-        
+
         chart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1130,15 +1151,15 @@ function initializeUI() {
                 },
                 scales: {
                     x: {
-                        title: { 
-                            display: true, 
-                            text: 'Volume (mm³)', 
+                        title: {
+                            display: true,
+                            text: 'Volume (mm³)',
                             font: { size: 14, weight: 'bold' },
                             padding: { top: 10, bottom: 5 }
                         },
                         grid: { color: 'rgba(0,0,0,0.1)' },
                         ticks: {
-                            callback: function(value) {
+                            callback: function (value) {
                                 return formatMm3(toMm3(value));
                             },
                             maxRotation: 45,
@@ -1150,9 +1171,9 @@ function initializeUI() {
                         position: 'bottom'
                     },
                     y: {
-                        title: { 
-                            display: true, 
-                            text: 'Pressure', 
+                        title: {
+                            display: true,
+                            text: 'Pressure',
                             font: { size: 14, weight: 'bold' },
                             padding: { left: 10, right: 5 }
                         },
@@ -1169,7 +1190,7 @@ function initializeUI() {
                     legend: {
                         display: true,
                         position: 'top',
-                        labels: { 
+                        labels: {
                             font: { size: 14, weight: 'bold' },
                             padding: 10,
                             boxWidth: 15,
@@ -1178,7 +1199,7 @@ function initializeUI() {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 var pressureValue = context.raw ? context.raw.y : context.parsed.y;
                                 var volumeValue = context.raw ? context.raw.x : context.parsed.x;
                                 var mm3Value = toMm3(volumeValue);
@@ -1245,21 +1266,21 @@ function initializeUI() {
                 maintainAspectRatio: false,
                 scales: {
                     x: { title: { display: false }, ticks: { display: false }, grid: { display: false } },
-                    y: { 
-                        title: { display: true, text: 'Volume (mm³)' }, 
+                    y: {
+                        title: { display: true, text: 'Volume (mm³)' },
                         grid: { color: 'rgba(0,0,0,0.1)' },
                         ticks: {
-                            callback: function(value) {
+                            callback: function (value) {
                                 return formatMm3(value);
                             }
                         }
                     }
                 },
-                plugins: { 
+                plugins: {
                     legend: { display: true, position: 'top' },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 var value = context.parsed.y;
                                 return 'Volume: ' + formatMm3(value) + ' mm³';
                             }
@@ -1278,7 +1299,7 @@ function initializeUI() {
             }
             return;
         }
-        
+
         // Ensure chart is ready
         if (!pvChart.data || !pvChart.data.datasets || !pvChart.data.datasets[0]) {
             console.warn('[UI] Chart not ready, initializing...');
@@ -1287,21 +1308,21 @@ function initializeUI() {
         if (!parsed.pressureReadings || parsed.pressureReadings.length === 0 || !parsed.volumeReadings || parsed.volumeReadings.length === 0) {
             return; // only handle PV packets
         }
-        
+
         lastPVUpdateMs = Date.now();
         var n = Math.min(parsed.pressureReadings.length, parsed.volumeReadings.length);
-        
+
         // Add points to the chart
         for (var i = 0; i < n; i++) {
             var volumeM3 = parsed.volumeReadings[i] * 1e-9; // convert mm^3 to m^3
             pvPoints.push({ x: volumeM3, y: parsed.pressureReadings[i] });
         }
-        
+
         // Keep only last 500 points (reduced from 1000 for better performance)
         if (pvPoints.length > 500) {
             pvPoints = pvPoints.slice(pvPoints.length - 500);
         }
-        
+
         // Always update chart data, even if we don't redraw immediately
         if (pvChart.data && pvChart.data.datasets && pvChart.data.datasets[0]) {
             pvChart.data.datasets[0].data = pvPoints;
@@ -1309,7 +1330,7 @@ function initializeUI() {
             console.warn('[UI] Chart data structure not ready');
             return;
         }
-        
+
         // Force chart update - ensure it redraws when data arrives
         var nowMs = Date.now();
         // Update more frequently (50ms = 20 FPS) to ensure smooth plotting
@@ -1333,7 +1354,7 @@ function initializeUI() {
             // Even if throttled, schedule an update for the next frame
             if (!chartUpdatePending) {
                 chartUpdatePending = true;
-                requestAnimationFrame(function() {
+                requestAnimationFrame(function () {
                     try {
                         if (pvChart) pvChart.update('none');
                         if (pressureChart) pressureChart.update('none');
@@ -1354,7 +1375,7 @@ function initializeUI() {
                 const work = computePolygonArea(pvPoints);
                 var wd = document.getElementById('workDisplay');
                 if (wd) { wd.textContent = 'Work (P×V units): ' + work.toFixed(2); }
-            } catch (_) {}
+            } catch (_) { }
         }
 
         // Time series updates (one reading per PV packet) - hide x-axis labels
@@ -1381,69 +1402,69 @@ function initializeUI() {
         }
         return Math.abs(area) / 2;
     }
-    
+
     // Function to start monitoring (simulates temperature data)
     function startMonitoring() {
         statusText.textContent = 'Monitoring...';
         statusText.style.color = '#28a745';
-        
+
         if (startButton) startButton.disabled = true;
         if (stopButton) stopButton.disabled = false;
-        
+
         // Generate temperature data every 2 seconds
-        monitoringInterval = setInterval(function() {
+        monitoringInterval = setInterval(function () {
             // Simulate temperature readings (realistic Stirling engine range)
             const baseTemp = 80; // Base temperature in Celsius
             const variation = (Math.random() - 0.5) * 20; // ±10°C variation
             const trend = Math.sin(dataPointCounter * 0.1) * 5; // Slow oscillation
             const newTemperature = baseTemp + variation + trend;
-            
+
             // Add new data point
             addDataPoint(newTemperature);
-            
+
         }, 2000); // Update every 2 seconds
     }
-    
+
     // Function to stop monitoring
     function stopMonitoring() {
         statusText.textContent = 'Stopped';
         statusText.style.color = '#dc3545';
-        
+
         if (startButton) startButton.disabled = false;
         if (stopButton) stopButton.disabled = true;
-        
+
         if (monitoringInterval) {
             clearInterval(monitoringInterval);
             monitoringInterval = null;
         }
     }
-    
+
     // Function to add a new data point to the chart
     function addDataPoint(temperature) {
         // Add temperature to our data array
         temperatureData.push(temperature);
-        
+
         // Create time label
         const now = new Date();
         const timeString = now.toLocaleTimeString();
         timeLabels.push(timeString);
-        
+
         // Keep only the last 50 data points to prevent the chart from getting too crowded
         if (temperatureData.length > 50) {
             temperatureData.shift();
             timeLabels.shift();
         }
-        
+
         // Update the chart if present
         if (chart) {
             chart.update('none'); // 'none' means no animation for smoother updates
         }
-        
+
         // Update the UI
         dataPointCounter++;
         dataCount.textContent = dataPointCounter;
         currentTemp.textContent = temperature.toFixed(1) + '°C';
-        
+
         // Change color based on temperature
         if (temperature > 90) {
             currentTemp.style.color = '#dc3545'; // Red for hot
@@ -1453,62 +1474,62 @@ function initializeUI() {
             currentTemp.style.color = '#28a745'; // Green for normal
         }
     }
-    
+
     // Function to clear all data
     function clearData() {
         // Clear the data arrays
         temperatureData = [];
         timeLabels = [];
         dataPointCounter = 0;
-        
+
         // Update the chart if present
         if (chart) {
             chart.update();
         }
-        
+
         // Update the UI
         dataCount.textContent = '0';
         currentTemp.textContent = '--°C';
         currentTemp.style.color = '#6c757d';
-        
+
         // Stop monitoring if it's running
         if (monitoringInterval) {
             stopMonitoring();
         }
-        
+
         statusText.textContent = 'Ready';
         statusText.style.color = '#6c757d';
     }
-    
+
     // Function to generate sample data for demonstration
     function generateSampleData() {
         const sampleTemps = [75, 78, 82, 85, 88, 90, 87, 84, 81, 79, 76, 74, 77, 80, 83, 86, 89, 91, 88, 85];
         const sampleTimes = [];
-        
+
         for (let i = 0; i < sampleTemps.length; i++) {
             const time = new Date();
             time.setSeconds(time.getSeconds() - (sampleTemps.length - i) * 2);
             sampleTimes.push(time.toLocaleTimeString());
         }
-        
+
         temperatureData = sampleTemps;
         timeLabels = sampleTimes;
         dataPointCounter = sampleTemps.length;
-        
+
         chart.update();
         dataCount.textContent = dataPointCounter;
         currentTemp.textContent = sampleTemps[sampleTemps.length - 1].toFixed(1) + '°C';
     }
-    
+
     // Uncomment the line below to load sample data when the page loads
     // generateSampleData();
-    
+
     // USB Serial Communication Functions
     function setupSerialListeners() {
         // Listen for connection status updates
         if (window.electronAPI) {
             window.electronAPI.onConnectionStatus((event, status) => {
-                try { 
+                try {
                     // Status updates handled silently
                 } catch (e) {
                     console.error('[UI] Error in connection-status handler:', e);
@@ -1524,12 +1545,12 @@ function initializeUI() {
                 // Process batched data packets every 100ms (10 times per second)
                 function processBatchedData() {
                     if (pendingDataPackets.length === 0) return;
-                    
+
                     // Get latest values for immediate display
                     var latestRPM = null;
                     var latestTemp = null;
                     var latestPVPackets = [];
-                    
+
                     // Process all pending packets
                     for (var i = 0; i < pendingDataPackets.length; i++) {
                         var pkt = pendingDataPackets[i];
@@ -1544,13 +1565,13 @@ function initializeUI() {
                                 lastValidTemperature = pkt.heaterTemperature; // Store last valid value
                             }
                             // Collect PV packets for batch chart update
-                            if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 && 
+                            if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 &&
                                 Array.isArray(pkt.volumeReadings) && pkt.volumeReadings.length > 0) {
                                 latestPVPackets.push(pkt);
                             }
                         }
                     }
-                    
+
                     // Update displays with latest values (only if we have valid data, otherwise keep last valid)
                     if (latestRPM !== null && latestRPM > 0 && rpmValueEl) {
                         rpmValueEl.textContent = String(latestRPM);
@@ -1564,7 +1585,7 @@ function initializeUI() {
                         // Keep showing last valid temperature instead of 0
                         tempValueEl.textContent = String(lastValidTemperature);
                     }
-                    
+
                     // Batch update PV chart (only once per batch)
                     if (latestPVPackets.length > 0) {
                         // Process all PV packets together
@@ -1580,7 +1601,7 @@ function initializeUI() {
                             }
                         }
                     }
-                    
+
                     // Handle data for CSV logging - process ALL packets to avoid data loss
                     // For UI statistics, we only need the latest, but CSV needs everything
                     if (pendingDataPackets.length > 0) {
@@ -1595,14 +1616,14 @@ function initializeUI() {
                             handleStirlingData(validPackets);
                         }
                     }
-                    
+
                     // Clear batch
                     var processedCount = pendingDataPackets.length;
                     pendingDataPackets = [];
-                    
+
                     // Batch processed silently
                 }
-                
+
                 // Start batch processing interval (100ms = 10 updates per second)
                 // Ensure variables are initialized
                 if (typeof pendingDataPackets === 'undefined') {
@@ -1611,16 +1632,16 @@ function initializeUI() {
                 if (!dataBatchInterval) {
                     dataBatchInterval = setInterval(processBatchedData, 100);
                 }
-                
+
                 // Accumulate packets into batch
-                window.electronAPI.onStirlingData(function(event, parsedPackets) {
+                window.electronAPI.onStirlingData(function (event, parsedPackets) {
                     try {
                         // parsedPackets is already an array from the worker thread
                         if (!parsedPackets) return;
                         if (!Array.isArray(parsedPackets)) {
                             parsedPackets = [parsedPackets];
                         }
-                        
+
                         // Add to batch instead of processing immediately
                         for (var i = 0; i < parsedPackets.length; i++) {
                             var pkt = parsedPackets[i];
@@ -1628,9 +1649,9 @@ function initializeUI() {
                                 pendingDataPackets.push(pkt);
                             }
                         }
-                        
+
                         // Data received silently
-                        
+
                         // Limit batch size to prevent memory issues
                         if (pendingDataPackets.length > 50) {
                             // Keep only latest 50 packets
@@ -1641,47 +1662,47 @@ function initializeUI() {
                     }
                 });
             }
-            
+
             // Keep raw data listener for admin window if needed (fallback)
             // Also use it to parse calibration data packets (0xAB ... 0xAB format)
             if (window.electronAPI.onRawData) {
-                window.electronAPI.onRawData(function(event, bytes) {
+                window.electronAPI.onRawData(function (event, bytes) {
                     // Raw data processing moved to worker thread for better performance
                     // This listener can be used for admin/debugging purposes
-                    
+
                     parseCalibrationData(bytes);
                 });
             }
         }
     }
-    
+
     function handleStirlingData(parsedDataArray) {
         // Process each parsed data packet
         parsedDataArray.forEach(parsedData => {
             // Avoid heavy console logging at high data rates
-            
+
             // Update system status to show data is flowing
             updateSystemStatusWithData();
-            
+
             // Update data arrays
             if (parsedData.pressureReadings.length > 0) {
                 const avgPressure = parsedData.pressureReadings.reduce((a, b) => a + b, 0) / parsedData.pressureReadings.length;
                 pressureData.push(avgPressure);
             }
-            
+
             if (parsedData.volumeReadings.length > 0) {
                 const avgVolume = parsedData.volumeReadings.reduce((a, b) => a + b, 0) / parsedData.volumeReadings.length;
                 volumeData.push(avgVolume);
             }
-            
+
             if (parsedData.rpm > 0) {
                 rpmData.push(parsedData.rpm);
             }
-            
+
             if (parsedData.heaterTemperature > 0) {
                 heaterTempData.push(parsedData.heaterTemperature);
             }
-            
+
             // Keep only last 30 data points (reduced for better performance)
             if (pressureData.length > 30) {
                 pressureData.shift();
@@ -1689,7 +1710,7 @@ function initializeUI() {
                 rpmData.shift();
                 heaterTempData.shift();
             }
-            
+
             // Update UI with latest data
             updateDataDisplay(parsedData);
             recordCsvPacket(parsedData);
@@ -1730,46 +1751,46 @@ function initializeUI() {
             console.warn('[UI] Error resetting charts/data:', e);
         }
     }
-    
+
     function updateDataDisplay(parsedData) {
         // Update status text
         statusText.textContent = 'Receiving Data';
         statusText.style.color = '#28a745';
-        
+
         // Update data count
         dataPointCounter++;
         dataCount.textContent = dataPointCounter;
-        
+
         // Temperature UI is no longer updated since graph was removed
     }
-    
+
     function updateConnectionStatus(status) {
         var wasConnected = isConnected;
         isConnected = status.connected;
-        
-        
+
+
         // Update system status banner
         updateSystemStatus(status);
-        
+
         if (status.connected) {
             if (shouldResetGraphsOnReconnect) {
                 resetChartsAndData();
                 shouldResetGraphsOnReconnect = false;
             }
-            
+
             const deviceInfo = status.deviceType ? ` (${status.deviceType})` : '';
             const portInfo = status.port ? ` on ${status.port}` : '';
             statusText.textContent = `Connected${deviceInfo}${portInfo}`;
             statusText.style.color = '#28a745';
             if (startButton) startButton.disabled = false;
             if (stopButton) stopButton.disabled = true;
-            
+
             // Turn heater OFF only when FIRST connecting (not on every status update)
             if (!wasConnected && !heaterInitializedOnConnection) {
                 heaterOn = false;
                 if (heaterToggle) {
                     heaterToggle.textContent = '○ Heater OFF';
-                    try { heaterToggle.classList.remove('active'); } catch(_){}
+                    try { heaterToggle.classList.remove('active'); } catch (_) { }
                 }
                 if (window.electronAPI && window.electronAPI.setHardwareReady) {
                     window.electronAPI.setHardwareReady(1);
@@ -1780,7 +1801,7 @@ function initializeUI() {
                 sendHeaterSetpoint();
                 heaterInitializedOnConnection = true;
             }
-            
+
             // Set Aux Output to 0 only when FIRST connecting (not on every status update)
             if (!wasConnected) {
                 if (auxSlider) {
@@ -1795,7 +1816,7 @@ function initializeUI() {
                     window.electronAPI.setAux(0);
                 }
             }
-            
+
             if (status.vid && status.pid) {
                 // Connected silently
             }
@@ -1804,7 +1825,7 @@ function initializeUI() {
                 shouldResetGraphsOnReconnect = true;
                 stopCsvSaving();
             }
-            
+
             // Reset initialization flag when disconnected
             heaterInitializedOnConnection = false;
             if (window.electronAPI && window.electronAPI.setHardwareReady) {
@@ -1819,7 +1840,7 @@ function initializeUI() {
             statusText.style.color = '#ffc107';
             if (startButton) startButton.disabled = true;
             if (stopButton) stopButton.disabled = true;
-            
+
             if (status.error) {
                 console.error('Connection error:', status.error);
                 statusText.textContent = 'Auto-connect failed - ' + status.error;
@@ -1827,25 +1848,25 @@ function initializeUI() {
             }
         }
     }
-    
+
     function updateSystemStatus(status) {
         if (!systemStatusBanner) {
             console.error('[UI] systemStatusBanner element not found!');
             return;
         }
-        
+
         try {
             const statusTextEl = systemStatusBanner.querySelector('.status-text');
             if (!statusTextEl) {
                 console.error('[UI] .status-text element not found in banner!');
                 return;
             }
-            
+
             if (status.connected) {
                 // System is ONLINE
                 systemStatusBanner.className = 'system-status-banner online';
                 statusTextEl.textContent = 'SYSTEM ONLINE';
-                
+
                 // Centered banner shows only the main text
             } else if (status.error) {
                 // System is OFFLINE with error
@@ -1861,16 +1882,16 @@ function initializeUI() {
             console.error('[UI] Error updating system status:', e);
         }
     }
-    
+
     function updateSystemStatusWithData() {
         // No secondary text in the centered style
     }
-    
+
     // Auto-connect function (called automatically by main process)
     async function attemptAutoConnect() {
         try {
             const result = await window.electronAPI.autoConnectStirling();
-            
+
             if (result.success) {
                 currentPort = result.port;
             }
@@ -1880,18 +1901,18 @@ function initializeUI() {
             // The main process will keep trying automatically
         }
     }
-    
+
     // Auto-connect to Stirling Engine device when page loads
     setTimeout(() => {
         attemptAutoConnect();
     }, 1000);
-    
+
     // Admin Functions
     function openAdminWindow() {
         var passwordModal = document.getElementById('passwordModal');
         var passwordInput = document.getElementById('passwordInput');
         var passwordError = document.getElementById('passwordError');
-        
+
         if (passwordModal) {
             passwordModal.classList.add('show');
             passwordInput.value = '';
@@ -1899,16 +1920,16 @@ function initializeUI() {
             passwordInput.focus();
         }
     }
-    
+
     // Password modal handlers
     var passwordModal = document.getElementById('passwordModal');
     var passwordInput = document.getElementById('passwordInput');
     var passwordSubmitBtn = document.getElementById('passwordSubmitBtn');
     var passwordCancelBtn = document.getElementById('passwordCancelBtn');
     var passwordError = document.getElementById('passwordError');
-    
+
     if (passwordSubmitBtn) {
-        passwordSubmitBtn.addEventListener('click', function() {
+        passwordSubmitBtn.addEventListener('click', function () {
             if (passwordInput.value === 'matrix123') {
                 passwordModal.classList.remove('show');
                 if (window.electronAPI) {
@@ -1921,17 +1942,17 @@ function initializeUI() {
             }
         });
     }
-    
+
     if (passwordCancelBtn) {
-        passwordCancelBtn.addEventListener('click', function() {
+        passwordCancelBtn.addEventListener('click', function () {
             passwordModal.classList.remove('show');
             passwordInput.value = '';
             passwordError.style.display = 'none';
         });
     }
-    
+
     if (passwordInput) {
-        passwordInput.addEventListener('keydown', function(e) {
+        passwordInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 passwordSubmitBtn.click();
             } else if (e.key === 'Escape') {
@@ -1939,6 +1960,6 @@ function initializeUI() {
             }
         });
     }
-    
+
 } // End of initializeUI function
 

@@ -77,7 +77,13 @@ function createWindow() {
     });
 
     // Make fullscreen on launch for best visibility
-    try { mainWindow.setFullScreen(true); } catch (_) {}
+    // On Windows: Maximize (Full Window)
+    // On Linux/Others: Full Screen
+    if (process.platform === 'win32') {
+        try { mainWindow.maximize(); } catch (_) {}
+    } else {
+        try { mainWindow.setFullScreen(true); } catch (_) {}
+    }
     try { mainWindow.setMenuBarVisibility(false); } catch (_) {}
 
     // Load the HTML file

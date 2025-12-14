@@ -16,7 +16,7 @@ npm start
 - 🔌 **Auto-connect USB serial communication** - Automatically detects and connects to Stirling Engine hardware (VID: `12BF`, PID: `010B`)
 - 📊 **Real-time data visualization** - Pressure-Volume (P-V) chart, Pressure vs Time, Volume vs Time, RPM, and temperature displays
 - 💾 **CSV data logging** - Record experimental data with start/stop button
-- 🎛️ **Hardware controls** - Heater setpoint (20-70°C), heater ON/OFF toggle, aux output (0-100%) with sweep functionality
+- 🎛️ **Hardware controls** - Heater setpoint (20-70°C), heater ON/OFF toggle, aux output (0-100%) with dynamic visual feedback and sweep functionality
 - 🔧 **Calibration system** - M (measurement), Z (zero), N (done) calibration commands
 - 🛡️ **Safety automation** - Automatic safety commands on connect/disconnect
 - 🔍 **Admin/debug window** - Password-protected window for viewing raw/parsed packets
@@ -71,6 +71,7 @@ MIT © 2024 Matrix Stirling Engine Team
 ---
 
 **Note**: This application includes automatic safety features that ensure hardware is properly shut down when the app closes. Always test safety commands thoroughly before deploying on real equipment.
+
 
 
 

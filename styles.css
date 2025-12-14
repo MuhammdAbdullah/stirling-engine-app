@@ -29,8 +29,10 @@ body {
     width: 100%;
     margin: 0 auto;
     padding: clamp(10px, 2vw, 24px);
-    min-width: 0; /* Allow shrinking */
-    overflow-x: hidden; /* Prevent horizontal scroll */
+    min-width: 0;
+    /* Allow shrinking */
+    overflow-x: hidden;
+    /* Prevent horizontal scroll */
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -41,8 +43,9 @@ body {
     .container {
         padding: clamp(8px, 1.5vw, 12px);
     }
-    
-    html, body {
+
+    html,
+    body {
         overflow-x: hidden;
         width: 100%;
     }
@@ -53,42 +56,54 @@ header {
     margin-bottom: clamp(15px, 3vh, 30px);
     color: white;
     flex-shrink: 0;
+    position: relative;
+    /* Allow absolute positioning of children */
 }
+
 .header-row {
     display: flex;
     align-items: center;
-    justify-content: center; /* center content */
+    justify-content: center;
+    /* center content */
     gap: 16px;
-    flex-wrap: wrap; /* allow wrap when narrow */
+    flex-wrap: wrap;
+    /* allow wrap when narrow */
+    min-height: 40px;
+    /* Ensure height for absolute centered items */
 }
 
+/* Matrix logo: Top Left, Small */
 .matrix-logo {
-    height: 40px;
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 25px;
+    /* Smaller */
     width: auto;
-    flex: 0 0 auto;
+    z-index: 10;
 }
 
+/* Stirling Engine logo: Centered (via flex), Small */
 .header-logo {
     height: auto;
     width: auto;
-    max-height: 64px;
-    max-width: clamp(280px, 60vw, 900px);
+    max-height: 40px;
+    /* Smaller */
+    max-width: clamp(200px, 50vw, 600px);
     object-fit: contain;
 }
 
-/* Prevent overlap on narrow screens: unfix Matrix logo and shrink */
-@media (max-width: 900px) {
+/* Adjust for very small screens if needed, but keep positioning implies */
+@media (max-width: 600px) {
     .matrix-logo {
-        height: 28px;
+        height: 20px;
+        left: 10px;
+        /* tighter margin */
     }
-    .header-row {
-        gap: 10px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
+
     .header-logo {
-        max-height: 48px;
-        max-width: 80vw;
+        max-height: 32px;
     }
 }
 
@@ -96,11 +111,14 @@ main {
     background: #333333;
     border-radius: 15px;
     padding: clamp(15px, 3vw, 30px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     width: 100%;
-    overflow-x: hidden; /* Prevent horizontal scroll */
-    overflow-y: auto; /* Allow vertical scroll if needed */
-    min-width: 0; /* Allow shrinking */
+    overflow-x: hidden;
+    /* Prevent horizontal scroll */
+    overflow-y: auto;
+    /* Allow vertical scroll if needed */
+    min-width: 0;
+    /* Allow shrinking */
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -123,16 +141,20 @@ main {
     position: relative;
     display: flex;
     flex-direction: column;
-    min-width: 0; /* Allow shrinking */
-    min-height: clamp(200px, 30vh, 400px); /* Responsive minimum height */
+    min-width: 0;
+    /* Allow shrinking */
+    min-height: clamp(200px, 30vh, 400px);
+    /* Responsive minimum height */
     max-height: 100%;
-    overflow: visible; /* Allow axis labels to show */
+    overflow: visible;
+    /* Allow axis labels to show */
     flex: 1;
 }
 
 /* Extra padding for PV chart on small screens */
 #pvContainer {
-    padding-bottom: 30px; /* Extra space for rotated Volume axis labels */
+    padding-bottom: 30px;
+    /* Extra space for rotated Volume axis labels */
 }
 
 @media (max-width: 600px) {
@@ -140,8 +162,10 @@ main {
         padding: clamp(8px, 2vw, 10px) clamp(4px, 1vw, 5px) clamp(25px, 4vh, 40px) clamp(4px, 1vw, 5px);
         min-height: clamp(250px, 35vh, 400px);
     }
+
     #pvContainer {
-        padding-bottom: clamp(30px, 5vh, 40px); /* Extra space for rotated labels on mobile */
+        padding-bottom: clamp(30px, 5vh, 40px);
+        /* Extra space for rotated labels on mobile */
     }
 }
 
@@ -152,7 +176,8 @@ main {
     grid-template-columns: var(--pv-col-width) 1fr;
     gap: clamp(10px, 2vw, 20px);
     align-items: stretch;
-    min-width: 0; /* Allow grid to shrink */
+    min-width: 0;
+    /* Allow grid to shrink */
     flex: 1;
     min-height: 0;
 }
@@ -173,8 +198,10 @@ main {
     display: flex;
     align-items: center;
     gap: clamp(5px, 1vw, 10px);
-    flex-wrap: wrap; /* Allow wrapping on narrow screens */
-    max-width: calc(100% - clamp(20px, 4vw, 40px)); /* Prevent overflow */
+    flex-wrap: wrap;
+    /* Allow wrapping on narrow screens */
+    max-width: calc(100% - clamp(20px, 4vw, 40px));
+    /* Prevent overflow */
 }
 
 /* Move admin controls below header on very narrow screens */
@@ -188,6 +215,7 @@ main {
         width: 100%;
     }
 }
+
 .theme-selector {
     padding: clamp(5px, 1vh, 6px) clamp(10px, 2vw, 12px);
     border: 2px solid #007bff;
@@ -198,20 +226,24 @@ main {
     cursor: pointer;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+
 .theme-selector:hover {
     background: #f8f9fa;
 }
+
 .theme-selector:focus {
     outline: none;
     border-color: #0056b3;
     box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
 }
-.charts-left { 
-    width: 100%; 
+
+.charts-left {
+    width: 100%;
     display: flex;
     flex-direction: column;
     min-height: 0;
 }
+
 .charts-right {
     display: flex;
     flex-direction: column;
@@ -236,12 +268,14 @@ main {
     width: 100%;
     overflow-x: hidden;
 }
+
 .control-panel-grid {
     display: grid;
     grid-template-columns: 1fr auto;
     gap: clamp(10px, 2vw, 20px);
     align-items: start;
-    min-width: 0; /* Allow grid to shrink */
+    min-width: 0;
+    /* Allow grid to shrink */
 }
 
 /* Stack control panel on narrow screens */
@@ -249,49 +283,62 @@ main {
     .control-panel-grid {
         grid-template-columns: 1fr;
     }
+
     .control-panel-right {
         flex-direction: row;
         justify-content: flex-start;
         flex-wrap: wrap;
     }
 }
+
 .control-panel-left {
     display: flex;
     flex-direction: column;
 }
+
 .control-panel-right {
     display: flex;
     flex-direction: column;
     gap: clamp(8px, 1.5vh, 10px);
 }
+
 .control-panel-right .tile {
     padding: 8px 12px;
     min-width: 120px;
 }
+
 .control-panel-right .tile-label {
     font-size: 0.8rem;
     margin-bottom: 4px;
 }
+
 .control-panel-right .tile-value {
     font-size: 1.2rem;
 }
+
 .control-row {
     display: flex;
     align-items: center;
     gap: clamp(8px, 1.5vw, 10px);
     margin-bottom: clamp(8px, 1.5vh, 10px);
-    flex-wrap: wrap; /* Allow wrapping */
-    min-width: 0; /* Allow shrinking */
+    flex-wrap: wrap;
+    /* Allow wrapping */
+    min-width: 0;
+    /* Allow shrinking */
 }
+
 .csv-inline-group {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: 10px;
-    flex-wrap: wrap; /* Allow wrapping */
+    flex-wrap: wrap;
+    /* Allow wrapping */
 }
-#heaterSlider, #auxSlider { 
-    width: 100%; 
+
+#heaterSlider,
+#auxSlider {
+    width: 100%;
     flex: 1;
 }
 
@@ -321,7 +368,7 @@ main {
     background: #007bff;
     cursor: pointer;
     margin-top: -8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 #heaterSlider::-moz-range-track {
@@ -339,22 +386,83 @@ main {
     border-radius: 50%;
     background: #007bff;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     border: none;
 }
 
-.slider-row label { 
-    min-width: clamp(140px, 20vw, 160px); 
-    flex-shrink: 0; /* Prevent label from shrinking */
+/* Aux slider theme - Blue */
+/* Aux slider theme - Blue */
+#auxSlider {
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, #007bff 0%, #007bff 0%, #fff 0%, #fff 100%);
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+#auxSlider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: transparent;
+    border-radius: 4px;
+    border: none;
+}
+
+#auxSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    margin-top: -6px;
+    /* Adjusted for centered thumb on 8px height with borders */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 2;
+}
+
+#auxSlider::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: transparent;
+    border-radius: 4px;
+    border: none;
+}
+
+#auxSlider::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border: none;
+    position: relative;
+    z-index: 2;
+}
+
+.slider-row label {
+    min-width: clamp(140px, 20vw, 160px);
+    flex-shrink: 0;
+    /* Prevent label from shrinking */
     font-size: clamp(0.85rem, 2vw, 1rem);
 }
+
 @media (max-width: 600px) {
     .slider-row label {
         min-width: clamp(120px, 25vw, 140px);
     }
 }
 
-.slider-row { position: relative; }
+.slider-row {
+    position: relative;
+}
+
 .slider-tip {
     position: absolute;
     top: -18px;
@@ -368,6 +476,7 @@ main {
     opacity: 0;
     transition: opacity 0.2s ease;
 }
+
 .slider-row:hover .slider-tip,
 .slider-row.active .slider-tip {
     opacity: 1;
@@ -375,32 +484,38 @@ main {
 
 .num-input {
     width: clamp(60px, 12vw, 80px);
-    min-width: clamp(50px, 10vw, 60px); /* Prevent from getting too small */
+    min-width: clamp(50px, 10vw, 60px);
+    /* Prevent from getting too small */
     padding: clamp(5px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
     border: 1px solid #ced4da;
     border-radius: 6px;
-    flex-shrink: 0; /* Prevent input from shrinking */
+    flex-shrink: 0;
+    /* Prevent input from shrinking */
     font-size: clamp(0.85rem, 2vw, 1rem);
 }
+
 .tile {
     background: white;
     border: 2px solid #e9ecef;
     border-radius: 10px;
     padding: clamp(10px, 2vh, 12px) clamp(12px, 2vw, 16px);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
     width: 100%;
     box-sizing: border-box;
 }
+
 .tile-label {
     font-size: clamp(0.8rem, 2vw, 0.9rem);
     color: #6c757d;
     margin-bottom: clamp(4px, 0.8vh, 6px);
 }
+
 .tile-value {
     font-size: clamp(1.2rem, 4vw, 1.6rem);
     font-weight: 700;
     color: #007bff;
 }
+
 .work-display {
     margin-top: clamp(8px, 1.5vh, 10px);
     font-weight: 600;
@@ -413,26 +528,38 @@ main {
 }
 
 /* Fix chart canvas heights to prevent layout growth */
-#pressureTimeChart, #volumeTimeChart {
-    height: 100% !important; /* each fills half of right column */
+#pressureTimeChart,
+#volumeTimeChart {
+    height: 100% !important;
+    /* each fills half of right column */
 }
 
 /* Ensure canvases expand to their containers */
-#pvChart, #pressureTimeChart, #volumeTimeChart { 
-    width: 100% !important; 
+#pvChart,
+#pressureTimeChart,
+#volumeTimeChart {
+    width: 100% !important;
     height: 100% !important;
     display: block;
-    min-height: clamp(180px, 25vh, 300px); /* Responsive minimum height */
-    max-height: 100%; /* Don't exceed container */
+    min-height: clamp(180px, 25vh, 300px);
+    /* Responsive minimum height */
+    max-height: 100%;
+    /* Don't exceed container */
     object-fit: contain;
 }
 
-.control-panel, .info-tiles { width: 100%; max-width: 100%; overflow: hidden; }
+.control-panel,
+.info-tiles {
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+}
 
 /* Square PV container using aspect-ratio; lets right column match height via flex stretch */
 .pv-square {
     width: 100%;
-    aspect-ratio: 1 / 1; /* square based on left column width */
+    aspect-ratio: 1 / 1;
+    /* square based on left column width */
     height: auto;
 }
 
@@ -444,10 +571,13 @@ main {
     height: 100%;
     flex: 1;
 }
+
 .time-col .time-cell {
     flex: 1 1 0;
-    min-height: clamp(180px, 25vh, 300px); /* Responsive minimum height */
-    overflow: visible; /* Allow axis labels to show */
+    min-height: clamp(180px, 25vh, 300px);
+    /* Responsive minimum height */
+    overflow: visible;
+    /* Allow axis labels to show */
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -455,7 +585,8 @@ main {
 
 @media (max-width: 600px) {
     .time-col .time-cell {
-        min-height: clamp(160px, 22vh, 250px); /* Responsive minimum on mobile */
+        min-height: clamp(160px, 22vh, 250px);
+        /* Responsive minimum on mobile */
     }
 }
 
@@ -476,8 +607,10 @@ main {
     cursor: pointer;
     transition: all 0.3s ease;
     min-width: clamp(100px, 15vw, 120px);
-    flex-shrink: 0; /* Prevent buttons from shrinking */
-    white-space: nowrap; /* Prevent text wrapping in buttons */
+    flex-shrink: 0;
+    /* Prevent buttons from shrinking */
+    white-space: nowrap;
+    /* Prevent text wrapping in buttons */
 }
 
 @media (max-width: 600px) {
@@ -490,7 +623,7 @@ main {
 
 .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .btn:disabled {
@@ -518,25 +651,42 @@ main {
     background: linear-gradient(45deg, #dc3545, #b21f2d);
     animation: csvIdleBlink 1.5s ease-in-out infinite;
 }
+
 .csv-idle:hover:not(:disabled) {
     background: linear-gradient(45deg, #c82333, #9b1d29);
 }
+
 .csv-saving {
     background: linear-gradient(45deg, #28a745, #218838);
     animation: csvSavingBlink 1s ease-in-out infinite;
 }
+
 .csv-saving:hover:not(:disabled) {
     background: linear-gradient(45deg, #218838, #1e7e34);
 }
 
 @keyframes csvIdleBlink {
-    0%, 100% { box-shadow: 0 0 8px rgba(220, 53, 69, 0.4); }
-    50% { box-shadow: 0 0 18px rgba(220, 53, 69, 0.85); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(220, 53, 69, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 18px rgba(220, 53, 69, 0.85);
+    }
 }
 
 @keyframes csvSavingBlink {
-    0%, 100% { box-shadow: 0 0 8px rgba(40, 167, 69, 0.4); }
-    50% { box-shadow: 0 0 18px rgba(40, 167, 69, 0.85); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(40, 167, 69, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 18px rgba(40, 167, 69, 0.85);
+    }
 }
 
 /* Heater toggle active state (matches Heat Transfer theme) */
@@ -598,9 +748,12 @@ main {
 }
 
 @keyframes pulse-sweep {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4);
     }
+
     50% {
         box-shadow: 0 4px 20px rgba(142, 68, 173, 0.7);
     }
@@ -636,9 +789,11 @@ main {
 .system-status-banner {
     margin: clamp(8px, 1.5vh, 10px) 0;
     padding: clamp(8px, 1.5vh, 10px) clamp(15px, 3vw, 20px);
-    border-radius: 0; /* thin strip look */
+    border-radius: 0;
+    /* thin strip look */
     display: flex;
-    justify-content: center; /* center the text */
+    justify-content: center;
+    /* center the text */
     align-items: center;
     font-weight: 700;
     font-size: clamp(0.9rem, 2.5vw, 1.1rem);
@@ -652,13 +807,13 @@ main {
 .system-status-banner.offline {
     border-bottom-color: #ff4d4f;
     color: #ff4d4f;
-    text-shadow: 0 0 8px rgba(255,77,79,0.6);
+    text-shadow: 0 0 8px rgba(255, 77, 79, 0.6);
 }
 
 .system-status-banner.online {
     border-bottom-color: #28a745;
     color: #28a745;
-    text-shadow: 0 0 8px rgba(40,167,69,0.6);
+    text-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
 }
 
 .system-status-banner.connecting {
@@ -673,10 +828,12 @@ main {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
     }
+
     70% {
         transform: scale(1);
         box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
     }
+
     100% {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
@@ -813,7 +970,7 @@ main {
     padding: 10px;
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .label {
@@ -832,25 +989,25 @@ main {
     .container {
         padding: clamp(8px, 1.5vw, 10px);
     }
-    
+
     header h1 {
         font-size: clamp(1.5rem, 5vw, 2rem);
     }
-    
+
     main {
         padding: clamp(10px, 2vw, 15px);
     }
-    
+
     .controls {
         flex-direction: column;
         align-items: center;
     }
-    
+
     .btn {
         width: 100%;
         max-width: clamp(180px, 40vw, 200px);
     }
-    
+
     .status {
         grid-template-columns: 1fr;
     }
@@ -859,15 +1016,17 @@ main {
     .charts-grid {
         grid-template-columns: 1fr;
     }
+
     .charts-left {
         width: 100%;
     }
-    
+
     /* Make sweep row stack vertically on very small screens */
     .sweep-row {
         flex-direction: column;
         align-items: flex-start;
     }
+
     .csv-inline-group {
         margin-left: 0;
         width: 100%;
@@ -879,11 +1038,11 @@ main {
     .header-logo {
         max-width: 90vw;
     }
-    
+
     .matrix-logo {
         height: clamp(20px, 5vw, 28px);
     }
-    
+
     .control-panel-right .tile {
         min-width: auto;
         width: 100%;
@@ -895,7 +1054,7 @@ main {
     .chart-container {
         min-height: clamp(150px, 25vh, 250px);
     }
-    
+
     .time-col .time-cell {
         min-height: clamp(120px, 20vh, 200px);
     }
@@ -906,11 +1065,11 @@ main {
     main {
         padding: clamp(10px, 2vh, 20px);
     }
-    
+
     header {
         margin-bottom: clamp(10px, 2vh, 20px);
     }
-    
+
     .system-status-banner {
         margin: clamp(5px, 1vh, 10px) 0;
         padding: clamp(5px, 1vh, 8px) clamp(10px, 2vw, 15px);
@@ -996,12 +1155,200 @@ main {
     min-width: 100px;
 }
 
-.btn-submit:hover:not(:disabled) {
-    background: #218838;
+
+/* =========================================
+   Responsiveness (Compact Mode) - Applied up to 4K Ultra Wide
+   ========================================= */
+@media (max-width: 5120px),
+(max-height: 2160px) {
+
+    /* 1. Compact Container & Layout */
+    .container {
+        padding: 4px;
+        /* Minimal padding */
+    }
+
+    header {
+        margin-bottom: 5px;
+        /* Reduce header spacing */
+        position: relative;
+    }
+
+    .header-row {
+        min-height: 30px;
+        gap: 0;
+        /* Remove gap to prevent overflow */
+        justify-content: center;
+        width: 100%;
+    }
+
+    /* 2. Smaller Logos - Prevent Overlap */
+    .matrix-logo {
+        height: 20px;
+        /* Even smaller */
+        left: 5px;
+        z-index: 20;
+        /* Ensure on top */
+    }
+
+    .header-logo {
+        height: auto;
+        width: auto;
+        max-height: 30px;
+        max-width: 60vw !important;
+        /* Force constraint to prevent overlap */
+        object-fit: contain;
+    }
+
+    /* 3. Compact Control Panel */
+    .control-panel {
+        padding: 6px;
+        border-width: 1px;
+    }
+
+    .control-panel-grid {
+        gap: 8px;
+        grid-template-columns: 1fr auto;
+        /* Keep side-by-side if possible */
+    }
+
+    /* 4. Compact Controls (Buttons, Inputs, Sliders) */
+    .control-row {
+        gap: 6px;
+        margin-bottom: 4px;
+        flex-wrap: nowrap;
+        /* Try to keep on one line */
+    }
+
+    .btn {
+        padding: 4px 6px;
+        /* Much tighter buttons */
+        font-size: 0.75rem;
+        min-width: 60px;
+        /* Allow shrinking */
+        border-radius: 4px;
+        height: 28px;
+        /* Fixed small height */
+        white-space: nowrap;
+    }
+
+    /* Scale labels down or allow them to shrink */
+    .slider-row label {
+        min-width: 60px;
+        /* Reduce minimal width */
+        font-size: 0.75rem;
+        flex-shrink: 1;
+        /* Allow shrinking */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Input adjustments */
+    .num-input {
+        padding: 2px 4px;
+        height: 24px;
+        width: 45px;
+        min-width: 35px;
+        font-size: 0.75rem;
+    }
+
+    /* Slider track adjustments */
+    #heaterSlider,
+    #auxSlider {
+        flex: 1;
+        /* Take remaining space */
+        min-width: 60px;
+        /* But don't vanish */
+    }
+
+    /* Hide less critical elements if needed, or compact them */
+    .slider-tip {
+        font-size: 0.7rem;
+        padding: 1px 4px;
+        top: -16px;
+    }
+
+    /* 5. Compact Info Tiles (Side Panel) */
+    .control-panel-right {
+        gap: 4px;
+    }
+
+    .control-panel-right .tile {
+        padding: 4px 6px;
+        min-width: 70px;
+        border-radius: 6px;
+    }
+
+    .control-panel-right .tile-label {
+        font-size: 0.65rem;
+        margin-bottom: 2px;
+    }
+
+    .control-panel-right .tile-value {
+        font-size: 0.9rem;
+    }
+
+    /* 6. Chart Sizing for Vertical Constraint */
+    .charts-grid {
+        margin-top: 5px !important;
+        gap: 8px;
+    }
+
+    .chart-container {
+        padding: 2px 2px 15px 2px;
+        /* Bottom padding for axis labels */
+        margin-bottom: 0;
+        border-width: 1px;
+        min-height: 120px;
+        /* Allow very small charts */
+    }
+
+    #pvContainer {
+        padding-bottom: 15px;
+    }
+
+    /* Force specific small heights */
+    .time-col .time-cell {
+        min-height: 100px;
+    }
+
+    /* 7. Admin Controls */
+    .admin-top-right {
+        top: 2px;
+        right: 5px;
+        transform: scale(0.8);
+        /* Scale down further */
+        transform-origin: top right;
+        max-width: 40vw;
+        /* Limit width */
+    }
+
+    .admin-top-right label {
+        display: none;
+        /* Hide 'Theme:' label on very small screens */
+    }
 }
 
-.password-error {
-    margin-top: 15px;
-    color: #dc3545;
-    font-weight: 600;
+/* Extra-tight mode for specifically height constrained 420px */
+@media (max-height: 420px) {
+    body {
+        font-size: 13px;
+        /* Base font reduction */
+    }
+
+    .matrix-logo {
+        height: 16px;
+        left: 2px;
+    }
+
+    .header-logo {
+        max-height: 24px;
+        /* Tiny logo */
+    }
+
+    /* Allow charts to shrink even more */
+    .chart-container {
+        min-height: 100px;
+    }
 }
