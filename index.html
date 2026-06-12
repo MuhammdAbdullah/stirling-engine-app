@@ -11,7 +11,7 @@
     <link rel="manifest" href="assets/site.webmanifest">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="theme-dark">
     <div class="container">
         <!-- System Status Banner moved to very top -->
         <header>
@@ -27,45 +27,75 @@
         <main>
             <!-- Controls and tiles (always above graphs) -->
             <div class="control-panel">
-                <div class="control-panel-grid">
-                    <div class="control-panel-left">
-                        <div class="control-row slider-row">
-                            <label for="heaterSlider">Heater Setpoint (°C)</label>
-                            <input id="heaterSlider" type="range" min="20" max="70" value="20" />
-                            <span id="heaterTip" class="slider-tip">20</span>
-                            <span id="heaterValue">20°C</span>
+                <div class="controls-layout">
+                    <!-- Heater Control Section (LEFT) -->
+                    <div class="heater-control">
+                        <div class="control-header">
+                            <span class="control-title">HEATER SETPOINT CONTROL</span>
                         </div>
-                        <div class="control-row">
-                            <button id="heaterToggle" class="btn btn-start">Heater ON</button>
+                        <div class="heater-buttons">
+                            <button id="heaterToggle" class="heater-btn">Heater ON</button>
                         </div>
-                        <div class="control-row slider-row">
-                            <label for="auxSlider">Aux Output (%)</label>
-                            <input id="auxSlider" type="range" min="0" max="100" value="0" />
-                            <span id="auxTip" class="slider-tip">0</span>
-                            <span id="auxValue">0%</span>
-                        </div>
-                        <div class="control-row sweep-row">
-                            <label style="min-width:120px;">Sweep (0–100%)</label>
-                            <label for="sweepStep">Step:</label>
-                            <input id="sweepStep" type="number" min="1" max="20" value="5" class="num-input" />
-                            <label for="sweepInterval">Interval (ms):</label>
-                            <input id="sweepInterval" type="number" min="50" value="200" class="num-input" />
-                            <button id="sweepToggle" class="btn btn-connect">Start Sweep</button>
-                            <div class="csv-inline-group">
-                                <button id="csvToggle" class="btn btn-start">Start CSV Save</button>
-                                <button id="calibrationButton" class="btn btn-connect">Calibration</button>
+                        <div class="heater-slider-container">
+                            <div class="heater-slider-wrapper">
+                                <div class="heater-slider-fill" id="heaterSliderFill"></div>
+                                <input id="heaterSlider" type="range" min="20" max="70" value="20" />
+                                <span id="heaterTip" class="slider-tip">20</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="text" id="heaterValue" class="value-display" value="20" />
+                                <span style="color: var(--text, #ffffff); font-size: 1.75rem; font-weight: 700;">°C</span>
                             </div>
                         </div>
                     </div>
-                    <div class="control-panel-right">
-                        <div class="tile">
-                            <div class="tile-label">Temperature (°C)</div>
-                            <div id="tempValue" class="tile-value">--</div>
+                    
+                    <!-- Load Control Section (MIDDLE) -->
+                    <div class="fan-control">
+                        <div class="control-header">
+                            <span class="control-title">LOAD CONTROL</span>
                         </div>
-                        <div class="tile">
-                            <div class="tile-label">RPM</div>
-                            <div id="rpmValue" class="tile-value">--</div>
+                        <!-- Sweep controls inline above Aux slider (same row style as original layout) -->
+                        <div class="control-row sweep-row" style="width: 100%;">
+                            <label style="min-width:120px; color: var(--text, #ffffff); font-weight: bold;">Sweep (0–100%)</label>
+                            <label for="sweepStep" style="color: var(--text, #ffffff);">Step:</label>
+                            <input id="sweepStep" type="number" min="1" max="20" value="5" class="num-input" />
+                            <label for="sweepInterval" style="color: var(--text, #ffffff);">Interval (ms):</label>
+                            <input id="sweepInterval" type="number" min="50" value="200" class="num-input" />
+                            <button id="sweepToggle" class="heater-btn">Start Sweep</button>
                         </div>
+                        <div class="fan-slider-container">
+                            <div class="slider-wrapper">
+                                <div class="slider-fill" id="auxSliderFill"></div>
+                                <input id="auxSlider" type="range" min="0" max="100" value="0" />
+                                <span id="auxTip" class="slider-tip">0</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="text" id="auxValue" class="value-display" value="0" />
+                                <span style="color: var(--text, #ffffff); font-size: 1.75rem; font-weight: 700;">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- CSV, Calibration and Data Tiles Row (single row) -->
+                <div class="control-panel-footer-row" style="margin-top: 1.25rem; display: flex; flex-direction: row; gap: 0.75rem; justify-content: center; align-items: center; flex-wrap: nowrap; width: 100%;">
+                    <button id="csvToggle" class="heater-btn" style="flex: 0 0 auto;">Start CSV Save</button>
+                    <button id="calibrationButton" class="heater-btn" style="flex: 0 0 auto;">Calibration</button>
+                    <div class="tile" style="flex: 0 0 auto;">
+                        <div class="tile-label">Temperature (°C)</div>
+                        <div id="tempValue" class="tile-value">--</div>
+                    </div>
+                    <div class="tile" style="flex: 0 0 auto;">
+                        <div class="tile-label">Power (W)</div>
+                        <div id="powerValue" class="tile-value">--</div>
+                    </div>
+                    <div class="tile" style="flex: 0 0 auto;">
+                        <div class="tile-label">RPM</div>
+                        <div id="rpmValue" class="tile-value">--</div>
+                    </div>
+                    <div class="tile" style="flex: 0 0 auto;">
+                        <div class="tile-label">Heater Time (s)</div>
+                        <div id="heaterElapsedTime" class="tile-value">0.000</div>
                     </div>
                 </div>
             </div>
@@ -75,16 +105,35 @@
                 <div class="charts-left">
                     <div id="pvContainer" class="chart-container">
                         <canvas id="pvChart"></canvas>
-                        <div id="workDisplay" class="work-display">Work (P×V units): --</div>
+                        <div id="workDisplay" class="work-display">
+                            Work:
+                            <span id="workValue">--</span>
+                            <select id="workUnit" class="work-unit-select">
+                                <option value="J">J</option>
+                                <option value="mJ">mJ</option>
+                                <option value="uJ">µJ</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <!-- Right: Pressure/Volume Time Charts stacked fill same combined height -->
+                <!-- Right: Time-based charts (Pressure, Volume, Temperature/RPM) stacked to share height -->
                 <div class="charts-right time-col">
                     <div id="pressureTimeContainer" class="chart-container time-cell">
                         <canvas id="pressureTimeChart"></canvas>
                     </div>
                     <div id="volumeTimeContainer" class="chart-container time-cell">
                         <canvas id="volumeTimeChart"></canvas>
+                    </div>
+                    <!-- New 4th graph: Time vs Temperature/RPM with user-selectable Y axis -->
+                    <div id="tempRpmTimeContainer" class="chart-container time-cell">
+                        <div class="time-chart-header">
+                            <span class="time-chart-title">Time Graph:</span>
+                            <select id="timeSeriesMode" class="time-chart-select">
+                                <option value="temperature">Temperature (°C)</option>
+                                <option value="rpm">RPM</option>
+                            </select>
+                        </div>
+                        <canvas id="tempRpmTimeChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -93,7 +142,7 @@
                     <label for="themeSelector" style="color: white; margin-right: 10px;">Theme:</label>
                     <select id="themeSelector" class="theme-selector">
                         <option value="light">Light</option>
-                        <option value="dark">Dark</option>
+                        <option value="dark" selected>Dark</option>
                     </select>
                     <button id="adminButton" class="btn btn-admin">⚙️ Admin</button>
                 </div>

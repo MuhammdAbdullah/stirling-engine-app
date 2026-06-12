@@ -51,6 +51,8 @@ function initializeUI() {
     const currentTemp = document.getElementById('currentTemp');
     const rpmValueEl = document.getElementById('rpmValue');
     const tempValueEl = document.getElementById('tempValue');
+    const powerValueEl = document.getElementById('powerValue');
+    const heaterElapsedTimeEl = document.getElementById('heaterElapsedTime');
     const heaterSlider = document.getElementById('heaterSlider');
     const heaterValue = document.getElementById('heaterValue');
     const heaterToggle = document.getElementById('heaterToggle');
@@ -68,18 +70,64 @@ function initializeUI() {
     const zeroButton = document.getElementById('zeroButton');
     const doneButton = document.getElementById('doneButton');
     const themeSelector = document.getElementById('themeSelector');
+    const workValueEl = document.getElementById('workValue');
+    const workUnitSelect = document.getElementById('workUnit');
     let heaterOn = false;
-    let currentTheme = 'light';
+    let currentTheme = 'dark';
     const chartCanvas = document.getElementById('temperatureChart');
     const pvCanvas = document.getElementById('pvChart');
     const pressureTimeCanvas = document.getElementById('pressureTimeChart');
     const volumeTimeCanvas = document.getElementById('volumeTimeChart');
+    const tempRpmTimeCanvas = document.getElementById('tempRpmTimeChart');
     const pvContainer = document.getElementById('pvContainer');
     const pressureTimeContainer = document.getElementById('pressureTimeContainer');
     const volumeTimeContainer = document.getElementById('volumeTimeContainer');
+    const tempRpmTimeContainer = document.getElementById('tempRpmTimeContainer');
+    const timeSeriesModeSelect = document.getElementById('timeSeriesMode');
 
     // System status elements
     const systemStatusBanner = document.getElementById('systemStatusBanner');
+
+    // Function to auto-resize input boxes based on their content
+    function autoResizeInput(inputElement) {
+        if (!inputElement) return;
+        
+        // Create a temporary span to measure text width
+        const measureSpan = document.createElement('span');
+        measureSpan.style.position = 'absolute';
+        measureSpan.style.visibility = 'hidden';
+        measureSpan.style.whiteSpace = 'nowrap';
+        measureSpan.style.fontSize = window.getComputedStyle(inputElement).fontSize;
+        measureSpan.style.fontFamily = window.getComputedStyle(inputElement).fontFamily;
+        measureSpan.style.fontWeight = window.getComputedStyle(inputElement).fontWeight;
+        document.body.appendChild(measureSpan);
+        
+        function updateWidth() {
+            const value = inputElement.value || inputElement.placeholder || '0';
+            measureSpan.textContent = value;
+            const minWidth = parseFloat(window.getComputedStyle(inputElement).minWidth) || 64;
+            const measuredWidth = measureSpan.offsetWidth;
+            const padding = 20; // Extra padding for comfort
+            const newWidth = Math.max(minWidth, measuredWidth + padding);
+            inputElement.style.width = newWidth + 'px';
+        }
+        
+        // Update width on input, change, and focus events
+        inputElement.addEventListener('input', updateWidth);
+        inputElement.addEventListener('change', updateWidth);
+        inputElement.addEventListener('focus', updateWidth);
+        
+        // Initial width update
+        updateWidth();
+    }
+    
+    // Apply auto-resize to sweep inputs
+    if (sweepStepEl) {
+        autoResizeInput(sweepStepEl);
+    }
+    if (sweepIntervalEl) {
+        autoResizeInput(sweepIntervalEl);
+    }
 
     // Variables to store our data and chart
     let temperatureData = [];
@@ -88,6 +136,7 @@ function initializeUI() {
     let pvChart = null;
     let pressureChart = null;
     let volumeChart = null;
+    let timeSeriesChart = null;
     let pvPoints = [];
 
     // Chart update throttling for better performance
@@ -97,9 +146,19 @@ function initializeUI() {
     let pressureTimeValues = [];
     let volumeTimeLabels = [];
     let volumeTimeValues = [];
+
+    // New time-series chart (4th graph): Time on X, Temperature or RPM on Y
+    let timeSeriesLabels = [];
+    let timeSeriesTempValues = [];
+    let timeSeriesRpmValues = [];
+    let timeSeriesMode = 'temperature'; // 'temperature' or 'rpm'
+    let timeSeriesStartTimeMs = null;
+    let lastTimeSeriesDrawMs = 0;
+    let timeSeriesLastSampleMs = 0; // only add a new point every 2 seconds
+    let timeSeriesPausedUntilMs = null; // when switching modes, wait before plotting
     let monitoringInterval = null;
     let dataPointCounter = 0;
-    let lastPVUpdateMs = 0; // no longer used for auto-hide
+    let lastPVUpdateMs = 0; // time of last PV data redraw
     let lastChartDrawMs = 0; // throttle chart redraws to ~20 FPS
 
     // Batch data packets for better performance
@@ -117,9 +176,17 @@ function initializeUI() {
     let calibrationDataBuffer = [];
     let shouldResetGraphsOnReconnect = false;
 
-    // Track last valid RPM and Temperature values (don't show 0)
+    // Track last valid RPM, Temperature and Power values (don't show 0)
     let lastValidRPM = null;
     let lastValidTemperature = null;
+    let lastValidPower = null;
+    let lastRpmTimestamp = null; // Track when last RPM value was received
+    let rpmTimeoutInterval = null; // Timer to check for RPM timeout
+
+    // Work display state (base unit: Joules)
+    let currentWorkJoules = 0;
+    let hasWorkValue = false;
+    let currentWorkUnit = 'J';
 
     // Data storage for Stirling Engine
     let pressureData = [];
@@ -133,6 +200,31 @@ function initializeUI() {
     let lastCsvRpm = '';
     let lastCsvPressure = '';
     let lastCsvVolume = '';
+
+    // Heater cycle timer:
+    // - Starts from 0 when heater turns ON
+    // - Keeps counting even if heater turns OFF
+    // - Resets to 0 next time heater turns ON
+    let heaterCycleStartTimeMs = null;
+    let lastHeaterElapsedMs = 0;
+
+    function updateHeaterElapsedDisplay(seconds) {
+        if (!heaterElapsedTimeEl) {
+            return;
+        }
+        var safeSeconds = Number(seconds);
+        if (!isFinite(safeSeconds) || safeSeconds < 0) {
+            safeSeconds = 0;
+        }
+        // Show only one decimal place on the screen for easier reading
+        heaterElapsedTimeEl.textContent = safeSeconds.toFixed(1);
+    }
+
+    function resetHeaterCycleTimer() {
+        heaterCycleStartTimeMs = Date.now();
+        lastHeaterElapsedMs = 0;
+        updateHeaterElapsedDisplay(0);
+    }
 
     // Asynchronous CSV logging queue
     let csvPacketQueue = [];
@@ -163,11 +255,13 @@ function initializeUI() {
     initializePVChart();
     initializePressureChart();
     initializeVolumeChart();
+    initializeTimeSeriesChart();
 
     // Always show charts
     try { if (pvContainer) pvContainer.style.display = 'block'; } catch (_) { }
     try { if (pressureTimeContainer) pressureTimeContainer.style.display = 'block'; } catch (_) { }
     try { if (volumeTimeContainer) volumeTimeContainer.style.display = 'block'; } catch (_) { }
+    try { if (tempRpmTimeContainer) tempRpmTimeContainer.style.display = 'block'; } catch (_) { }
 
     // Initialize Stirling data parser
     if (typeof StirlingDataParser !== 'undefined') {
@@ -183,16 +277,44 @@ function initializeUI() {
     if (heaterSlider && heaterValue) {
         // Set slider to 20 when app opens
         heaterSlider.value = 20;
-        heaterValue.textContent = '20°C';
+        heaterValue.value = 20;
         updateSliderTip();
+        updateHeaterSliderFill(20);
         let sliderDebounce = null;
         heaterSlider.addEventListener('input', function () {
-            heaterValue.textContent = heaterSlider.value + '°C';
+            heaterValue.value = heaterSlider.value;
             updateSliderTip();
+            updateHeaterSliderFill(heaterSlider.value);
             if (sliderDebounce) clearTimeout(sliderDebounce);
             sliderDebounce = setTimeout(function () {
                 sendHeaterSetpoint();
             }, 150);
+        });
+        // Function to update heater value from input
+        function updateHeaterFromInput() {
+            var val = parseInt(heaterValue.value);
+            if (isNaN(val)) {
+                val = 20;
+            }
+            val = Math.max(20, Math.min(70, val));
+            heaterValue.value = val;
+            heaterSlider.value = val;
+            updateSliderTip();
+            updateHeaterSliderFill(val);
+            if (sliderDebounce) clearTimeout(sliderDebounce);
+            sliderDebounce = setTimeout(function () {
+                sendHeaterSetpoint();
+            }, 150);
+        }
+        
+        // Allow user to type in the value input - only update on blur or Enter key
+        heaterValue.addEventListener('blur', updateHeaterFromInput);
+        heaterValue.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                updateHeaterFromInput();
+                heaterValue.blur(); // Remove focus after Enter
+            }
         });
         // Show tip on hover with cursor position
         heaterSlider.addEventListener('mousemove', function (e) {
@@ -213,12 +335,17 @@ function initializeUI() {
         // reflect initial state
         if (heaterOn) { try { heaterToggle.classList.add('active'); } catch (_) { } }
         heaterToggle.addEventListener('click', function () {
+            var wasHeaterOn = heaterOn;
             heaterOn = !heaterOn;
             heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
             try { heaterToggle.classList.toggle('active', heaterOn); } catch (_) { }
             sendHeaterMode();
             if (heaterOn) {
                 sendHeaterSetpoint();
+                // When user turns heater ON from the UI, start a new heater cycle timer
+                if (!wasHeaterOn) {
+                    resetHeaterCycleTimer();
+                }
             }
         });
         // Set initial text based on state
@@ -247,11 +374,13 @@ function initializeUI() {
         }
         val = Math.max(20, Math.min(70, val));
         heaterSlider.value = String(val);
-        heaterValue.textContent = val + '°C';
+        heaterValue.value = val;
         updateSliderTip();
+        updateHeaterSliderFill(val);
     }
 
     function applyHeaterHardwareValue(rawValue) {
+        var wasHeaterOn = heaterOn;
         heaterOn = rawValue ? true : false;
         if (heaterToggle) {
             heaterToggle.textContent = heaterOn ? '● Heater ON' : '○ Heater OFF';
@@ -259,53 +388,104 @@ function initializeUI() {
                 heaterToggle.classList.toggle('active', heaterOn);
             } catch (_) { }
         }
+        // If hardware reports a transition from OFF to ON, reset the heater cycle timer
+        if (!wasHeaterOn && heaterOn) {
+            resetHeaterCycleTimer();
+        }
     }
 
     function updateSliderTip() {
         if (!heaterSlider || !heaterTip) return;
-        var min = parseInt(heaterSlider.min || 0);
-        var max = parseInt(heaterSlider.max || 100);
-        var val = parseInt(heaterSlider.value || 0);
+        var min = parseInt(heaterSlider.min || 20);
+        var max = parseInt(heaterSlider.max || 70);
+        var val = parseInt(heaterSlider.value || 20);
         var percent = (val - min) / (max - min);
-        var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
-        var rowRect = row.getBoundingClientRect();
-        var sliderRect = heaterSlider.getBoundingClientRect();
-        var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-        heaterTip.style.left = x + 'px';
+        var wrapper = heaterSlider.closest('.heater-slider-wrapper');
+        if (wrapper) {
+            var wrapperRect = wrapper.getBoundingClientRect();
+            var x = percent * wrapperRect.width;
+            heaterTip.style.left = x + 'px';
+        } else {
+            // Fallback to old method
+            var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
+            var rowRect = row.getBoundingClientRect();
+            var sliderRect = heaterSlider.getBoundingClientRect();
+            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
+            heaterTip.style.left = x + 'px';
+        }
         heaterTip.textContent = String(val);
     }
 
     function updateSliderTipFromEvent(e) {
         if (!heaterSlider || !heaterTip) return;
-        var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
-        var rowRect = row.getBoundingClientRect();
-        var sliderRect = heaterSlider.getBoundingClientRect();
-        var mouseX = e.clientX - sliderRect.left;
-        var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
-        var min = parseInt(heaterSlider.min || 0);
-        var max = parseInt(heaterSlider.max || 100);
-        var val = Math.round(min + percent * (max - min));
-        var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-        heaterTip.style.left = x + 'px';
-        heaterTip.textContent = String(val);
+        var wrapper = heaterSlider.closest('.heater-slider-wrapper');
+        if (wrapper) {
+            var wrapperRect = wrapper.getBoundingClientRect();
+            var mouseX = e.clientX - wrapperRect.left;
+            var percent = Math.max(0, Math.min(1, mouseX / wrapperRect.width));
+            var min = parseInt(heaterSlider.min || 20);
+            var max = parseInt(heaterSlider.max || 70);
+            var val = Math.round(min + percent * (max - min));
+            var x = percent * wrapperRect.width;
+            heaterTip.style.left = x + 'px';
+            heaterTip.textContent = String(val);
+        } else {
+            // Fallback to old method
+            var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
+            var rowRect = row.getBoundingClientRect();
+            var sliderRect = heaterSlider.getBoundingClientRect();
+            var mouseX = e.clientX - sliderRect.left;
+            var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
+            var min = parseInt(heaterSlider.min || 20);
+            var max = parseInt(heaterSlider.max || 70);
+            var val = Math.round(min + percent * (max - min));
+            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
+            heaterTip.style.left = x + 'px';
+            heaterTip.textContent = String(val);
+        }
     }
 
     // Aux slider events
     if (auxSlider && auxValue) {
         // Set slider to 0 when app opens
         auxSlider.value = 0;
-        auxValue.textContent = '0%';
+        auxValue.value = 0;
         updateAuxTip();
         updateAuxSliderFill(0);
         let auxDebounce = null;
         auxSlider.addEventListener('input', function () {
-            auxValue.textContent = auxSlider.value + '%';
+            auxValue.value = auxSlider.value;
             updateAuxTip();
             updateAuxSliderFill(auxSlider.value);
             if (auxDebounce) clearTimeout(auxDebounce);
             auxDebounce = setTimeout(function () {
                 sendAuxCommand();
             }, 150);
+        });
+        // Allow user to type in the value input
+        auxValue.addEventListener('input', function () {
+            var val = parseInt(auxValue.value);
+            if (isNaN(val)) return;
+            val = Math.max(0, Math.min(100, val));
+            auxValue.value = val;
+            auxSlider.value = val;
+            updateAuxTip();
+            updateAuxSliderFill(val);
+            if (auxDebounce) clearTimeout(auxDebounce);
+            auxDebounce = setTimeout(function () {
+                sendAuxCommand();
+            }, 150);
+        });
+        auxValue.addEventListener('blur', function () {
+            var val = parseInt(auxValue.value);
+            if (isNaN(val)) {
+                val = 0;
+            }
+            val = Math.max(0, Math.min(100, val));
+            auxValue.value = val;
+            auxSlider.value = val;
+            updateAuxTip();
+            updateAuxSliderFill(val);
         });
         // Show tip on hover with cursor position
         auxSlider.addEventListener('mousemove', function (e) {
@@ -329,16 +509,41 @@ function initializeUI() {
         var max = parseInt(auxSlider.max || 100);
         var val = parseInt(auxSlider.value || 0);
         var percent = (val - min) / (max - min);
-        var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
-        var rowRect = row.getBoundingClientRect();
-        var sliderRect = auxSlider.getBoundingClientRect();
-        var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-        auxTip.style.left = x + 'px';
+        var wrapper = auxSlider.closest('.slider-wrapper');
+        if (wrapper) {
+            var wrapperRect = wrapper.getBoundingClientRect();
+            var x = percent * wrapperRect.width;
+            auxTip.style.left = x + 'px';
+        } else {
+            // Fallback to old method
+            var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
+            var rowRect = row.getBoundingClientRect();
+            var sliderRect = auxSlider.getBoundingClientRect();
+            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
+            auxTip.style.left = x + 'px';
+        }
         auxTip.textContent = String(val);
     }
 
+    function updateHeaterSliderFill(value) {
+        var heaterFill = document.getElementById('heaterSliderFill');
+        if (!heaterSlider || !heaterFill) return;
+        var min = parseInt(heaterSlider.min || 20);
+        var max = parseInt(heaterSlider.max || 70);
+        var val = parseInt(value || 20);
+
+        // Calculate percentage (0 to 1)
+        var percent = (val - min) / (max - min);
+        // Clamp between 0 and 1
+        percent = Math.max(0, Math.min(1, percent));
+
+        var percentageStr = (percent * 100) + '%';
+        heaterFill.style.setProperty('--fill-percent', percentageStr);
+    }
+
     function updateAuxSliderFill(value) {
-        if (!auxSlider) return;
+        var auxFill = document.getElementById('auxSliderFill');
+        if (!auxSlider || !auxFill) return;
         var min = parseInt(auxSlider.min || 0);
         var max = parseInt(auxSlider.max || 100);
         var val = parseInt(value || 0);
@@ -349,24 +554,36 @@ function initializeUI() {
         percent = Math.max(0, Math.min(1, percent));
 
         var percentageStr = (percent * 100) + '%';
-
-        // Update background gradient: Blue on left, White on right
-        auxSlider.style.background = `linear-gradient(to right, #007bff 0%, #007bff ${percentageStr}, #fff ${percentageStr}, #fff 100%)`;
+        auxFill.style.setProperty('--fill-percent', percentageStr);
     }
 
     function updateAuxTipFromEvent(e) {
         if (!auxSlider || !auxTip) return;
-        var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
-        var rowRect = row.getBoundingClientRect();
-        var sliderRect = auxSlider.getBoundingClientRect();
-        var mouseX = e.clientX - sliderRect.left;
-        var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
-        var min = parseInt(auxSlider.min || 0);
-        var max = parseInt(auxSlider.max || 100);
-        var val = Math.round(min + percent * (max - min));
-        var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-        auxTip.style.left = x + 'px';
-        auxTip.textContent = String(val);
+        var wrapper = auxSlider.closest('.slider-wrapper');
+        if (wrapper) {
+            var wrapperRect = wrapper.getBoundingClientRect();
+            var mouseX = e.clientX - wrapperRect.left;
+            var percent = Math.max(0, Math.min(1, mouseX / wrapperRect.width));
+            var min = parseInt(auxSlider.min || 0);
+            var max = parseInt(auxSlider.max || 100);
+            var val = Math.round(min + percent * (max - min));
+            var x = percent * wrapperRect.width;
+            auxTip.style.left = x + 'px';
+            auxTip.textContent = String(val);
+        } else {
+            // Fallback to old method
+            var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
+            var rowRect = row.getBoundingClientRect();
+            var sliderRect = auxSlider.getBoundingClientRect();
+            var mouseX = e.clientX - sliderRect.left;
+            var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
+            var min = parseInt(auxSlider.min || 0);
+            var max = parseInt(auxSlider.max || 100);
+            var val = Math.round(min + percent * (max - min));
+            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
+            auxTip.style.left = x + 'px';
+            auxTip.textContent = String(val);
+        }
     }
 
     // Keep tips positioned on resize and resize charts
@@ -382,6 +599,9 @@ function initializeUI() {
         }
         if (volumeChart) {
             volumeChart.resize();
+        }
+        if (timeSeriesChart) {
+            timeSeriesChart.resize();
         }
     });
 
@@ -401,7 +621,7 @@ function initializeUI() {
         }
         val = Math.max(0, Math.min(100, val));
         auxSlider.value = String(val);
-        auxValue.textContent = val + '%';
+        auxValue.value = val;
         updateAuxTip();
         updateAuxSliderFill(val);
     }
@@ -428,7 +648,7 @@ function initializeUI() {
             if (val >= 100) { val = 100; sweepDirection = -1; }
             if (val <= 0) { val = 0; sweepDirection = 1; }
             auxSlider.value = String(val);
-            auxValue.textContent = val + '%';
+            auxValue.value = val;
             updateAuxTip();
             updateAuxSliderFill(val);
             sendAuxCommand();
@@ -503,7 +723,8 @@ function initializeUI() {
             return;
         }
         csvFilePath = dialogResult.filePath;
-        csvRows = ['Timestamp,Pressure,Volume_mm3,Temperature,RPM'];
+        // First column is now HeaterTimeSeconds (time since last heater ON, in seconds)
+        csvRows = ['HeaterTimeSeconds,Pressure,Volume_mm3,Temperature,RPM'];
         lastCsvTemperature = '';
         lastCsvRpm = '';
         lastCsvPressure = '';
@@ -854,6 +1075,19 @@ function initializeUI() {
         var hasTemperatureRpm = (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) ||
             (typeof parsedData.rpm === 'number' && parsedData.rpm > 0);
 
+        // Attach heater elapsed time (seconds since last heater ON) to this packet
+        if (heaterCycleStartTimeMs !== null) {
+            var nowMsForCsv = Date.now();
+            var elapsedMsForCsv = nowMsForCsv - heaterCycleStartTimeMs;
+            if (elapsedMsForCsv < 0) {
+                elapsedMsForCsv = 0;
+            }
+            parsedData.heaterElapsedSeconds = elapsedMsForCsv / 1000;
+        } else {
+            // If we do not have a start time yet, store 0 seconds
+            parsedData.heaterElapsedSeconds = 0;
+        }
+
         if (hasPressureVolume || hasTemperatureRpm) {
             // Add to queue for async processing (very fast, non-blocking)
             csvPacketQueue.push(parsedData);
@@ -883,13 +1117,12 @@ function initializeUI() {
             return;
         }
 
-        // Get timestamp (only hour, minutes, seconds, and milliseconds)
-        var dateObj = (parsedData.timestamp && parsedData.timestamp instanceof Date) ? parsedData.timestamp : new Date();
-        var hours = String(dateObj.getHours()).padStart(2, '0');
-        var minutes = String(dateObj.getMinutes()).padStart(2, '0');
-        var seconds = String(dateObj.getSeconds()).padStart(2, '0');
-        var milliseconds = String(dateObj.getMilliseconds()).padStart(3, '0');
-        var timestampText = hours + ':' + minutes + ':' + seconds + '.' + milliseconds;
+        // Get heater time in seconds (time since last heater ON)
+        var heaterTimeSeconds = 0;
+        if (typeof parsedData.heaterElapsedSeconds === 'number' && isFinite(parsedData.heaterElapsedSeconds) && parsedData.heaterElapsedSeconds >= 0) {
+            heaterTimeSeconds = parsedData.heaterElapsedSeconds;
+        }
+        var heaterTimeText = heaterTimeSeconds.toFixed(3);
 
         // Get pressure and volume values from the packet
         var pressureValue = Number(parsedData.pressureReadings[0]);
@@ -919,7 +1152,8 @@ function initializeUI() {
         var rpmText = (rpmValue === '' || rpmValue === null || rpmValue === undefined) ? '' : String(rpmValue);
 
         // Add to CSV rows
-        csvRows.push(timestampText + ',' + pressureText + ',' + volumeText + ',' + temperatureText + ',' + rpmText);
+        // First column: heater time in seconds since last heater ON
+        csvRows.push(heaterTimeText + ',' + pressureText + ',' + volumeText + ',' + temperatureText + ',' + rpmText);
     }
 
     // Theme selector
@@ -932,6 +1166,28 @@ function initializeUI() {
         setTimeout(function () {
             updateChartTheme(currentTheme);
         }, 100);
+    }
+
+    // Time series mode selector (Temperature vs RPM)
+    if (timeSeriesModeSelect) {
+        timeSeriesModeSelect.addEventListener('change', function () {
+            // Set new mode
+            timeSeriesMode = timeSeriesModeSelect.value === 'rpm' ? 'rpm' : 'temperature';
+
+            // Clear existing time-series data
+            timeSeriesLabels = [];
+            timeSeriesTempValues = [];
+            timeSeriesRpmValues = [];
+            timeSeriesStartTimeMs = null;
+            timeSeriesLastSampleMs = 0;
+
+            // Pause plotting for 2 seconds before starting new mode
+            timeSeriesPausedUntilMs = Date.now() + 2000;
+            lastTimeSeriesDrawMs = 0;
+
+            // Immediately clear the chart display
+            updateTimeSeriesChartDataset();
+        });
     }
 
     // Set up USB serial communication listeners
@@ -964,6 +1220,17 @@ function initializeUI() {
 
     // Function to update chart theme
     function updateChartTheme(theme) {
+        // Update body class for theme
+        if (document.body) {
+            if (theme === 'dark') {
+                document.body.classList.add('theme-dark');
+                document.body.classList.remove('theme-light');
+            } else {
+                document.body.classList.add('theme-light');
+                document.body.classList.remove('theme-dark');
+            }
+        }
+        
         var gridColor, textColor, bgColor;
         if (theme === 'dark') {
             gridColor = 'rgba(255, 255, 255, 0.2)';
@@ -1002,6 +1269,17 @@ function initializeUI() {
             volumeChart.update('none');
         }
 
+        if (timeSeriesChart) {
+            timeSeriesChart.options.scales.x.grid.color = gridColor;
+            timeSeriesChart.options.scales.y.grid.color = gridColor;
+            timeSeriesChart.options.scales.x.ticks.color = textColor;
+            timeSeriesChart.options.scales.y.ticks.color = textColor;
+            timeSeriesChart.options.scales.x.title.color = textColor;
+            timeSeriesChart.options.scales.y.title.color = textColor;
+            timeSeriesChart.options.plugins.legend.labels.color = textColor;
+            timeSeriesChart.update('none');
+        }
+
         var chartContainers = document.querySelectorAll('.chart-container');
         for (var i = 0; i < chartContainers.length; i++) {
             chartContainers[i].style.background = bgColor;
@@ -1012,6 +1290,41 @@ function initializeUI() {
         if (workDisplay) {
             workDisplay.style.color = textColor;
         }
+    }
+
+    // Update the work display text based on selected unit
+    function updateWorkDisplay() {
+        if (!workValueEl || !workUnitSelect) {
+            return;
+        }
+
+        // Make sure the select shows the current unit
+        workUnitSelect.value = currentWorkUnit;
+
+        if (!hasWorkValue) {
+            workValueEl.textContent = '--';
+            return;
+        }
+
+        var valueToShow = currentWorkJoules;
+
+        // Convert from Joules to selected unit
+        if (currentWorkUnit === 'mJ') {
+            valueToShow = currentWorkJoules * 1000; // 1 J = 1000 mJ
+        } else if (currentWorkUnit === 'uJ') {
+            valueToShow = currentWorkJoules * 1000000; // 1 J = 1,000,000 µJ
+        }
+
+        // Show with 2 decimal places
+        workValueEl.textContent = valueToShow.toFixed(2);
+    }
+
+    // When user changes the unit, update the number
+    if (workUnitSelect) {
+        workUnitSelect.addEventListener('change', function () {
+            currentWorkUnit = workUnitSelect.value;
+            updateWorkDisplay();
+        });
     }
 
     // Function to create and configure the chart
@@ -1143,10 +1456,10 @@ function initializeUI() {
                 aspectRatio: 1,
                 layout: {
                     padding: {
-                        left: 10,
-                        right: 10,
-                        top: 10,
-                        bottom: 20
+                        left: 20,
+                        right: 20,
+                        top: 20,
+                        bottom: 30
                     }
                 },
                 scales: {
@@ -1164,11 +1477,12 @@ function initializeUI() {
                             },
                             maxRotation: 45,
                             minRotation: 45,
-                            padding: 5,
+                            padding: 10,
                             autoSkip: true,
                             maxTicksLimit: 8
                         },
-                        position: 'bottom'
+                        position: 'bottom',
+                        grace: '5%'
                     },
                     y: {
                         title: {
@@ -1179,11 +1493,12 @@ function initializeUI() {
                         },
                         grid: { color: 'rgba(0,0,0,0.1)' },
                         ticks: {
-                            padding: 5,
+                            padding: 10,
                             autoSkip: true,
                             maxTicksLimit: 8
                         },
-                        position: 'left'
+                        position: 'left',
+                        grace: '5%'
                     }
                 },
                 plugins: {
@@ -1234,11 +1549,41 @@ function initializeUI() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    x: { title: { display: false }, ticks: { display: false }, grid: { display: false } },
-                    y: { title: { display: true, text: 'Pressure' }, grid: { color: 'rgba(0,0,0,0.1)' } }
+                layout: {
+                    padding: {
+                        left: 15,
+                        right: 15,
+                        top: 15,
+                        bottom: 15
+                    }
                 },
-                plugins: { legend: { display: true, position: 'top' } }
+                scales: {
+                    x: { 
+                        title: { display: false }, 
+                        ticks: { display: false, padding: 5 }, 
+                        grid: { display: false } 
+                    },
+                    y: { 
+                        title: { 
+                            display: true, 
+                            text: 'Pressure',
+                            padding: { top: 5, bottom: 5 }
+                        }, 
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: {
+                            padding: 10,
+                            autoSkip: true
+                        },
+                        grace: '5%'
+                    }
+                },
+                plugins: { 
+                    legend: { 
+                        display: true, 
+                        position: 'top',
+                        padding: { bottom: 10 }
+                    } 
+                }
             }
         });
     }
@@ -1264,20 +1609,43 @@ function initializeUI() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 15,
+                        right: 15,
+                        top: 15,
+                        bottom: 15
+                    }
+                },
                 scales: {
-                    x: { title: { display: false }, ticks: { display: false }, grid: { display: false } },
+                    x: { 
+                        title: { display: false }, 
+                        ticks: { display: false, padding: 5 }, 
+                        grid: { display: false } 
+                    },
                     y: {
-                        title: { display: true, text: 'Volume (mm³)' },
+                        title: { 
+                            display: true, 
+                            text: 'Volume (mm³)',
+                            padding: { top: 5, bottom: 5 }
+                        },
                         grid: { color: 'rgba(0,0,0,0.1)' },
                         ticks: {
                             callback: function (value) {
                                 return formatMm3(value);
-                            }
-                        }
+                            },
+                            padding: 10,
+                            autoSkip: true
+                        },
+                        grace: '5%'
                     }
                 },
                 plugins: {
-                    legend: { display: true, position: 'top' },
+                    legend: { 
+                        display: true, 
+                        position: 'top',
+                        padding: { bottom: 10 }
+                    },
                     tooltip: {
                         callbacks: {
                             label: function (context) {
@@ -1289,6 +1657,112 @@ function initializeUI() {
                 }
             }
         });
+    }
+
+    // New 4th graph: Time vs Temperature or RPM (user selectable)
+    function initializeTimeSeriesChart() {
+        if (!tempRpmTimeCanvas) {
+            return;
+        }
+
+        const ctx = tempRpmTimeCanvas.getContext('2d');
+
+        timeSeriesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timeSeriesLabels,
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: timeSeriesTempValues,
+                    borderColor: '#fd7e14', // orange
+                    backgroundColor: 'rgba(253, 126, 20, 0.15)',
+                    borderWidth: 2,
+                    pointRadius: 1.5,
+                    tension: 0.2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 15,
+                        right: 15,
+                        top: 15,
+                        bottom: 20
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time (s)',
+                            padding: { top: 5, bottom: 5 }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            padding: 8,
+                            autoSkip: true
+                        },
+                        grace: '2%'
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)',
+                            padding: { top: 5, bottom: 5 }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        },
+                        ticks: {
+                            padding: 10,
+                            autoSkip: true
+                        },
+                        grace: '5%'
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        padding: { bottom: 10 }
+                    }
+                }
+            }
+        });
+    }
+
+    // Helper: update which dataset (Temperature or RPM) is shown on the time-series chart
+    function updateTimeSeriesChartDataset() {
+        if (!timeSeriesChart) {
+            return;
+        }
+
+        if (timeSeriesMode === 'rpm') {
+            // Show RPM on Y axis
+            timeSeriesChart.data.datasets[0].label = 'RPM';
+            timeSeriesChart.data.datasets[0].data = timeSeriesRpmValues;
+            timeSeriesChart.data.datasets[0].borderColor = '#ff5733'; // reddish orange
+            timeSeriesChart.data.datasets[0].backgroundColor = 'rgba(255, 87, 51, 0.15)';
+            timeSeriesChart.options.scales.y.title.text = 'RPM';
+        } else {
+            // Default: Temperature on Y axis
+            timeSeriesChart.data.datasets[0].label = 'Temperature (°C)';
+            timeSeriesChart.data.datasets[0].data = timeSeriesTempValues;
+            timeSeriesChart.data.datasets[0].borderColor = '#fd7e14';
+            timeSeriesChart.data.datasets[0].backgroundColor = 'rgba(253, 126, 20, 0.15)';
+            timeSeriesChart.options.scales.y.title.text = 'Temperature (°C)';
+        }
+
+        // Always use the same time labels on X axis
+        timeSeriesChart.data.labels = timeSeriesLabels;
+
+        // Redraw chart without animation for faster updates
+        timeSeriesChart.update('none');
     }
 
     // Update P–V chart with a parsed packet
@@ -1309,7 +1783,6 @@ function initializeUI() {
             return; // only handle PV packets
         }
 
-        lastPVUpdateMs = Date.now();
         var n = Math.min(parsed.pressureReadings.length, parsed.volumeReadings.length);
 
         // Add points to the chart
@@ -1318,9 +1791,9 @@ function initializeUI() {
             pvPoints.push({ x: volumeM3, y: parsed.pressureReadings[i] });
         }
 
-        // Keep only last 500 points (reduced from 1000 for better performance)
-        if (pvPoints.length > 500) {
-            pvPoints = pvPoints.slice(pvPoints.length - 500);
+        // Keep only last 250 points (reduced for better performance)
+        if (pvPoints.length > 250) {
+            pvPoints = pvPoints.slice(pvPoints.length - 250);
         }
 
         // Always update chart data, even if we don't redraw immediately
@@ -1347,6 +1820,9 @@ function initializeUI() {
                 if (volumeChart) {
                     volumeChart.update('none');
                 }
+                if (timeSeriesChart) {
+                    timeSeriesChart.update('none');
+                }
             } catch (e) {
                 console.warn('[UI] Chart update error:', e);
             }
@@ -1359,6 +1835,7 @@ function initializeUI() {
                         if (pvChart) pvChart.update('none');
                         if (pressureChart) pressureChart.update('none');
                         if (volumeChart) volumeChart.update('none');
+                        if (timeSeriesChart) timeSeriesChart.update('none');
                     } catch (e) {
                         console.warn('[UI] Chart update error:', e);
                     }
@@ -1372,9 +1849,30 @@ function initializeUI() {
         if (nowMs - lastPVUpdateMs > 500) {
             lastPVUpdateMs = nowMs;
             try {
-                const work = computePolygonArea(pvPoints);
-                var wd = document.getElementById('workDisplay');
-                if (wd) { wd.textContent = 'Work (P×V units): ' + work.toFixed(2); }
+                // Use only the last 51 points to get one complete cycle
+                // Pressure is already in Pascal (Pa), volume is in m³
+                // So area in Pa·m³ = Joules (no conversion needed)
+                var pointsForWork = pvPoints;
+                if (pvPoints.length > 51) {
+                    // Take only the last 51 points (one complete cycle)
+                    pointsForWork = pvPoints.slice(pvPoints.length - 51);
+                }
+                
+                // Need at least 3 points to calculate area
+                if (pointsForWork.length >= 3) {
+                    // computePolygonArea returns area in Pa·m³ = Joules
+                    // (pressure is in Pascal, volume is in m³)
+                    const workJoules = computePolygonArea(pointsForWork);
+                    
+                    currentWorkJoules = workJoules;
+                    hasWorkValue = true;
+                    updateWorkDisplay();
+                } else {
+                    // Not enough points yet
+                    currentWorkJoules = 0;
+                    hasWorkValue = false;
+                    updateWorkDisplay();
+                }
             } catch (_) { }
         }
 
@@ -1542,6 +2040,28 @@ function initializeUI() {
             // Listen for parsed data from worker thread (processed on separate CPU core)
             // Batch packets together to reduce UI lag on Linux
             if (window.electronAPI.onStirlingData) {
+                // Function to check if RPM timeout has occurred (4 seconds without new value)
+                function checkRpmTimeout() {
+                    if (rpmValueEl && lastRpmTimestamp !== null) {
+                        var timeSinceLastRpm = Date.now() - lastRpmTimestamp;
+                        if (timeSinceLastRpm >= 4000) {
+                            // 4 seconds have passed, set RPM to zero
+                            rpmValueEl.textContent = '0';
+                            lastValidRPM = null;
+                            lastRpmTimestamp = null;
+                        }
+                    } else if (rpmValueEl && lastRpmTimestamp === null && lastValidRPM === null) {
+                        // No RPM data ever received, show zero
+                        rpmValueEl.textContent = '0';
+                    }
+                }
+                
+                // Set up interval to check RPM timeout every second
+                if (rpmTimeoutInterval) {
+                    clearInterval(rpmTimeoutInterval);
+                }
+                rpmTimeoutInterval = setInterval(checkRpmTimeout, 1000);
+                
                 // Process batched data packets every 100ms (10 times per second)
                 function processBatchedData() {
                     if (pendingDataPackets.length === 0) return;
@@ -1549,6 +2069,7 @@ function initializeUI() {
                     // Get latest values for immediate display
                     var latestRPM = null;
                     var latestTemp = null;
+                    var latestPower = null;
                     var latestPVPackets = [];
 
                     // Process all pending packets
@@ -1559,10 +2080,15 @@ function initializeUI() {
                             if (typeof pkt.rpm === 'number' && pkt.rpm > 0) {
                                 latestRPM = pkt.rpm;
                                 lastValidRPM = pkt.rpm; // Store last valid value
+                                lastRpmTimestamp = Date.now(); // Update timestamp when RPM is received
                             }
                             if (typeof pkt.heaterTemperature === 'number' && pkt.heaterTemperature > 0) {
                                 latestTemp = pkt.heaterTemperature;
                                 lastValidTemperature = pkt.heaterTemperature; // Store last valid value
+                            }
+                            if (typeof pkt.power === 'number' && pkt.power > 0) {
+                                latestPower = pkt.power;
+                                lastValidPower = pkt.power;
                             }
                             // Collect PV packets for batch chart update
                             if (Array.isArray(pkt.pressureReadings) && pkt.pressureReadings.length > 0 &&
@@ -1575,16 +2101,39 @@ function initializeUI() {
                     // Update displays with latest values (only if we have valid data, otherwise keep last valid)
                     if (latestRPM !== null && latestRPM > 0 && rpmValueEl) {
                         rpmValueEl.textContent = String(latestRPM);
-                    } else if (lastValidRPM !== null && rpmValueEl) {
-                        // Keep showing last valid RPM instead of 0
-                        rpmValueEl.textContent = String(lastValidRPM);
+                    } else if (lastValidRPM !== null && rpmValueEl && lastRpmTimestamp !== null) {
+                        // Show last valid RPM (checkRpmTimeout will handle timeout)
+                        var timeSinceLastRpm = Date.now() - lastRpmTimestamp;
+                        if (timeSinceLastRpm < 4000) {
+                            rpmValueEl.textContent = String(lastValidRPM);
+                        }
+                        // If timeout, checkRpmTimeout will set it to zero
                     }
+                    // Check if RPM timeout has occurred (4 seconds without new value)
+                    checkRpmTimeout();
                     if (latestTemp !== null && latestTemp > 0 && tempValueEl) {
                         tempValueEl.textContent = String(latestTemp);
                     } else if (lastValidTemperature !== null && tempValueEl) {
                         // Keep showing last valid temperature instead of 0
                         tempValueEl.textContent = String(lastValidTemperature);
                     }
+                    if (latestPower !== null && latestPower > 0 && powerValueEl) {
+                        powerValueEl.textContent = latestPower.toFixed(2);
+                    } else if (lastValidPower !== null && powerValueEl) {
+                        powerValueEl.textContent = lastValidPower.toFixed(2);
+                    }
+
+                // Update heater elapsed time display each time we handle new temperature data
+                // Time starts from 0 when heater turns ON and keeps going until the next ON
+                if (heaterCycleStartTimeMs !== null) {
+                    var nowMsForDisplay = Date.now();
+                    lastHeaterElapsedMs = nowMsForDisplay - heaterCycleStartTimeMs;
+                    if (lastHeaterElapsedMs < 0) {
+                        lastHeaterElapsedMs = 0;
+                    }
+                    var elapsedSecondsForDisplay = lastHeaterElapsedMs / 1000;
+                    updateHeaterElapsedDisplay(elapsedSecondsForDisplay);
+                }
 
                     // Batch update PV chart (only once per batch)
                     if (latestPVPackets.length > 0) {
@@ -1714,6 +2263,9 @@ function initializeUI() {
             // Update UI with latest data
             updateDataDisplay(parsedData);
             recordCsvPacket(parsedData);
+
+            // Also update the new Time vs Temperature/RPM chart data
+            updateTimeSeriesData(parsedData);
         });
     }
 
@@ -1730,6 +2282,10 @@ function initializeUI() {
             volumeTimeLabels.length = 0;
             volumeTimeValues.length = 0;
             pvPoints = [];
+            timeSeriesLabels.length = 0;
+            timeSeriesTempValues.length = 0;
+            timeSeriesRpmValues.length = 0;
+            timeSeriesStartTimeMs = null;
             dataPointCounter = 0;
             if (dataCount) {
                 dataCount.textContent = '0';
@@ -1747,6 +2303,9 @@ function initializeUI() {
             if (volumeChart) {
                 volumeChart.update('none');
             }
+            if (timeSeriesChart) {
+                updateTimeSeriesChartDataset();
+            }
         } catch (e) {
             console.warn('[UI] Error resetting charts/data:', e);
         }
@@ -1762,6 +2321,84 @@ function initializeUI() {
         dataCount.textContent = dataPointCounter;
 
         // Temperature UI is no longer updated since graph was removed
+    }
+
+    // Update data for the new Time vs Temperature/RPM chart
+    function updateTimeSeriesData(parsedData) {
+        if (!timeSeriesChart) {
+            return;
+        }
+
+        var nowMs = Date.now();
+
+        // If we are in the 2-second pause window after a mode switch, skip plotting
+        if (timeSeriesPausedUntilMs !== null && nowMs < timeSeriesPausedUntilMs) {
+            return;
+        }
+
+        // Pause is over; clear the flag
+        timeSeriesPausedUntilMs = null;
+
+         // Only sample a new point every 2 seconds, ignore packets in between
+        if (timeSeriesLastSampleMs !== 0) {
+            var msSinceLastSample = nowMs - timeSeriesLastSampleMs;
+            if (msSinceLastSample < 2000) {
+                // Less than 2 seconds since last plotted point → skip this packet
+                return;
+            }
+        }
+        // Record time of this new sample
+        timeSeriesLastSampleMs = nowMs;
+
+        // Start time reference for X axis if not set
+        if (timeSeriesStartTimeMs === null) {
+            timeSeriesStartTimeMs = Date.now();
+        }
+
+        var elapsedSeconds = (nowMs - timeSeriesStartTimeMs) / 1000;
+        if (!isFinite(elapsedSeconds) || elapsedSeconds < 0) {
+            elapsedSeconds = 0;
+        }
+
+        // Push common X-axis value (time in seconds)
+        timeSeriesLabels.push(elapsedSeconds.toFixed(1)); // simple rounded seconds
+
+        // Temperature value for this packet
+        var tempValue = null;
+        if (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) {
+            tempValue = parsedData.heaterTemperature;
+        } else if (lastValidTemperature !== null) {
+            tempValue = lastValidTemperature;
+        }
+        timeSeriesTempValues.push(tempValue);
+
+        // RPM value for this packet
+        var rpmValue = null;
+        if (typeof parsedData.rpm === 'number' && parsedData.rpm > 0) {
+            rpmValue = parsedData.rpm;
+        } else if (lastValidRPM !== null) {
+            rpmValue = lastValidRPM;
+        }
+        timeSeriesRpmValues.push(rpmValue);
+
+        // Keep only the last 300 points so the graph stays reasonable
+        var maxPoints = 300;
+        if (timeSeriesLabels.length > maxPoints) {
+            timeSeriesLabels.shift();
+        }
+        if (timeSeriesTempValues.length > maxPoints) {
+            timeSeriesTempValues.shift();
+        }
+        if (timeSeriesRpmValues.length > maxPoints) {
+            timeSeriesRpmValues.shift();
+        }
+
+        // Throttle redraws to about 20 times per second
+        var nowForDraw = Date.now();
+        if (nowForDraw - lastTimeSeriesDrawMs > 50) {
+            lastTimeSeriesDrawMs = nowForDraw;
+            updateTimeSeriesChartDataset();
+        }
     }
 
     function updateConnectionStatus(status) {
@@ -1807,7 +2444,7 @@ function initializeUI() {
                 if (auxSlider) {
                     auxSlider.value = 0;
                     if (auxValue) {
-                        auxValue.textContent = '0%';
+                        auxValue.value = 0;
                     }
                     updateAuxTip();
                 }
@@ -1824,6 +2461,17 @@ function initializeUI() {
             if (wasConnected && !status.connected) {
                 shouldResetGraphsOnReconnect = true;
                 stopCsvSaving();
+            }
+
+            // Reset RPM timeout state when disconnected
+            lastRpmTimestamp = null;
+            lastValidRPM = null;
+            if (rpmValueEl) {
+                rpmValueEl.textContent = '0';
+            }
+            lastValidPower = null;
+            if (powerValueEl) {
+                powerValueEl.textContent = '0';
             }
 
             // Reset initialization flag when disconnected

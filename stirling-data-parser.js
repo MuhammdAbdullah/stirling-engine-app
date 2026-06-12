@@ -1,7 +1,8 @@
 // Stirling Engine Data Parser
-// Handles two packet types from USB COM port
+// Handles three packet types from USB COM port
 // 1) 7-byte PV packet: [0xAD,0xAD] + pressure(2 bytes, big-endian signed) + volume(1 byte index) + [0xDA,0xDA]
 // 2) 8-byte RT packet: [0xCD,0xCD] + rpm(2 bytes, big-endian) + temperature(2 bytes, big-endian) + [0xDC,0xDC]
+// 3) 8-byte Power packet: [0xA5,0xA5] + power(4 bytes, big-endian float32) + [0xA6,0xA6]
 
 class StirlingDataParser {
     constructor() {
@@ -12,6 +13,9 @@ class StirlingDataParser {
         this.PV_FOOTER = [0xDA, 0xDA];
         this.RT_HEADER = [0xCD, 0xCD];
         this.RT_FOOTER = [0xDC, 0xDC];
+        this.POWER_PACKET_SIZE = 8;
+        this.POWER_HEADER = [0xA5, 0xA5];
+        this.POWER_FOOTER = [0xA6, 0xA6];
         this.buffer = [];
         
         // Volume lookup table (0-50 index to actual volume values)
@@ -57,6 +61,7 @@ class StirlingDataParser {
                 const b = this.buffer[i + 1];
                 if (a === this.PV_HEADER[0] && b === this.PV_HEADER[1]) { headerType = 'PV'; start = i; break; }
                 if (a === this.RT_HEADER[0] && b === this.RT_HEADER[1]) { headerType = 'RT'; start = i; break; }
+                if (a === this.POWER_HEADER[0] && b === this.POWER_HEADER[1]) { headerType = 'POWER'; start = i; break; }
             }
             if (start === -1) {
                 // No header found; keep only the last byte to avoid unbounded growth
@@ -65,7 +70,7 @@ class StirlingDataParser {
             }
 
             // Not enough bytes yet for the detected packet
-            const needed = headerType === 'PV' ? this.PV_PACKET_SIZE : this.RT_PACKET_SIZE;
+            const needed = headerType === 'PV' ? this.PV_PACKET_SIZE : (headerType === 'RT' ? this.RT_PACKET_SIZE : this.POWER_PACKET_SIZE);
             if (this.buffer.length < start + needed) {
                 this.buffer = this.buffer.slice(start);
                 break;
@@ -86,6 +91,15 @@ class StirlingDataParser {
             } else if (headerType === 'RT') {
                 if (packet[6] === this.RT_FOOTER[0] && packet[7] === this.RT_FOOTER[1]) {
                     results.push(this.parseRTPacket(packet));
+                    this.buffer = this.buffer.slice(start + needed);
+                    continue;
+                } else {
+                    this.buffer = this.buffer.slice(start + 1);
+                    continue;
+                }
+            } else if (headerType === 'POWER') {
+                if (packet[6] === this.POWER_FOOTER[0] && packet[7] === this.POWER_FOOTER[1]) {
+                    results.push(this.parsePowerPacket(packet));
                     this.buffer = this.buffer.slice(start + needed);
                     continue;
                 } else {
@@ -144,6 +158,27 @@ class StirlingDataParser {
         // RPM (bytes 2..3), Temperature (bytes 4..5) big-endian
         result.rpm = (packet[2] << 8) | packet[3];
         result.heaterTemperature = (packet[4] << 8) | packet[5];
+
+        return result;
+    }
+
+    // Parse a complete 8-byte Power packet
+    parsePowerPacket(packet) {
+        const result = {
+            header: [packet[0], packet[1]], // 0xA5, 0xA5
+            pressureReadings: [],
+            volumeReadings: [],
+            rpm: 0,
+            heaterTemperature: 0,
+            power: 0,
+            footer: [packet[6], packet[7]], // 0xA6, 0xA6
+            rawData: packet,
+            timestamp: new Date()
+        };
+
+        // Power (bytes 2..5), big-endian IEEE 754 float32
+        const view = new DataView(new Uint8Array([packet[2], packet[3], packet[4], packet[5]]).buffer);
+        result.power = view.getFloat32(0, false); // false = big-endian
 
         return result;
     }
