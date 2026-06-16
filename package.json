@@ -54,15 +54,8 @@
     "files": [
       "**/*",
       "!assets/css/input.css",
-      "!node_modules/**/*",
-      "node_modules/chart.js/dist/chart.umd.js",
-      "data-worker.js",
-      "stirling-data-parser.js",
-      "node_modules/serialport/**/*",
-      "node_modules/@serialport/**/*",
-      "node_modules/node-hid/**/*",
-      "node_modules/debug/**/*",
-      "node_modules/ms/**/*"
+      "!node_modules/.cache/**/*",
+      "!node_modules/.bin/**/*"
     ],
     "win": {
       "target": "nsis"
