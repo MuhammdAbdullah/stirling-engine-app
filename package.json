@@ -60,7 +60,9 @@
       "stirling-data-parser.js",
       "node_modules/serialport/**/*",
       "node_modules/@serialport/**/*",
-      "node_modules/node-hid/**/*"
+      "node_modules/node-hid/**/*",
+      "node_modules/debug/**/*",
+      "node_modules/ms/**/*"
     ],
     "win": {
       "target": "nsis"
