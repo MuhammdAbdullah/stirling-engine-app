@@ -1,8 +1,9 @@
-name: Build for Raspberry Pi
+name: Build and Release
 
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -95,10 +96,9 @@ jobs:
           retention-days: 30
 
   create-release:
-    name: Create Release with Builds
+    name: Create Release
     needs: [build-arm64, build-armv7l]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
     steps:
@@ -114,17 +114,6 @@ jobs:
           name: raspberry-pi-armv7l
           path: ./artifacts/armv7l
 
-      - name: List downloaded files
-        run: |
-          echo "ARM64 files:"
-          ls -lh ./artifacts/arm64/ || echo "No ARM64 files found"
-          echo ""
-          echo "ARMv7l files:"
-          ls -lh ./artifacts/armv7l/ || echo "No ARMv7l files found"
-          echo ""
-          echo "All AppImage files found:"
-          find ./artifacts -type f -name "*.AppImage" || echo "No AppImage files found"
-
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -134,20 +123,20 @@ jobs:
           fail_on_unmatched_files: false
           draft: false
           prerelease: false
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }} - Raspberry Pi Builds
+          tag_name: ${{ github.ref_name }}
+          name: Matrix Stirling Engine ${{ github.ref_name }}
           body: |
-            Pre-built executables for Raspberry Pi
-            
-            **ARM64** (Raspberry Pi 3, 4, 5):
-            - Download the AppImage file
-            - Make it executable: `chmod +x "Matrix Stirling Engine-"*.AppImage`
-            - Run: `./"Matrix Stirling Engine-"*.AppImage`
-            
-            **ARMv7** (Raspberry Pi 1, 2, Zero):
-            - Download the AppImage file
-            - Make it executable: `chmod +x "Matrix Stirling Engine-"*.AppImage`
-            - Run: `./"Matrix Stirling Engine-"*.AppImage`
+            **Windows:**
+            - Download `Matrix-Stirling-Engine-Setup-*.exe` and run the installer
+
+            **Raspberry Pi ARM64** (Pi 3, 4, 5):
+            - Download the `arm64` AppImage
+            - `chmod +x "Matrix Stirling Engine-"*arm64*.AppImage`
+            - `./"Matrix Stirling Engine-"*arm64*.AppImage`
+
+            **Raspberry Pi ARMv7** (Pi 1, 2, Zero):
+            - Download the `armv7l` AppImage
+            - `chmod +x "Matrix Stirling Engine-"*armv7l*.AppImage`
+            - `./"Matrix Stirling Engine-"*armv7l*.AppImage`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

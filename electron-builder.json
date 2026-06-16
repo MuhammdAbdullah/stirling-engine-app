@@ -19,7 +19,8 @@
     "node_modules/@serialport/**/*"
   ],
   "win": {
-    "target": "nsis"
+    "target": "nsis",
+    "icon": "assets/app-icon.ico"
   },
   "mac": {
     "target": "dmg",

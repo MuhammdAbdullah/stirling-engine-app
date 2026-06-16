@@ -573,12 +573,13 @@
         } catch (e) {
             if (statusDisplay) statusDisplay.textContent = 'Error';
             if (statusMessage) statusMessage.className = 'update-status-message error';
-            if (statusContent) statusContent.textContent = 'Error: ' + e.message;
+            if (statusContent) statusContent.textContent = 'Error: ' + ((e && e.message) ? e.message : String(e || 'Unknown error'));
             if (checkBtn) checkBtn.disabled = false;
         }
     };
 
     function handleUpdateStatus(updateInfo) {
+        if (!updateInfo) return;
         var statusDisplay  = document.getElementById('updateStatusDisplay');
         var statusMessage  = document.getElementById('updateStatusMessage');
         var statusContent  = document.getElementById('updateStatusContent');
@@ -621,6 +622,11 @@
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
+    }
+
+    // Wire up update status events from main process
+    if (window.electronAPI && window.electronAPI.onUpdateStatus) {
+        window.electronAPI.onUpdateStatus(handleUpdateStatus);
     }
 
     addAdminLog('Admin panel ready.', 'success');

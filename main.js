@@ -2,6 +2,7 @@
 // It creates and manages the application window
 
 const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const { SerialPort } = require('serialport');
@@ -10,6 +11,129 @@ const HID = require('node-hid');
 
 // Suppress Chromium-level noise (e.g. DevTools protocol method-not-found errors)
 app.commandLine.appendSwitch('log-level', '3');
+
+// ── Auto-updater setup ────────────────────────────────────────────────────────
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+
+function sendUpdateStatusToAllWindows(updateInfo) {
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (win && !win.isDestroyed() && win.webContents) {
+            try { win.webContents.send('update-status', updateInfo); } catch (_) {}
+        }
+    });
+}
+
+autoUpdater.on('checking-for-update', () => {
+    sendUpdateStatusToAllWindows({ status: 'checking', message: 'Checking for updates...' });
+});
+
+autoUpdater.on('update-available', (info) => {
+    sendUpdateStatusToAllWindows({
+        status: 'available',
+        version: info.version,
+        releaseDate: info.releaseDate,
+        message: `Version ${info.version} is available!`
+    });
+    const targetWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getAllWindows()[0];
+    if (targetWindow) {
+        dialog.showMessageBox(targetWindow, {
+            type: 'info',
+            title: 'Update Available',
+            message: 'A new version is available!',
+            detail: `Version ${info.version} is now available. Would you like to download and install it?`,
+            buttons: ['Yes', 'Later'],
+            defaultId: 0,
+            cancelId: 1
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.downloadUpdate();
+                sendUpdateStatusToAllWindows({ status: 'downloading', message: 'Downloading update...' });
+            }
+        });
+    }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+    sendUpdateStatusToAllWindows({
+        status: 'not-available',
+        message: 'You are using the latest version.',
+        currentVersion: app.getVersion()
+    });
+});
+
+autoUpdater.on('error', (err) => {
+    console.error('[UPDATE] Error in auto-updater:', err);
+    sendUpdateStatusToAllWindows({
+        status: 'error',
+        message: 'Error checking for updates: ' + err.message
+    });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    sendUpdateStatusToAllWindows({
+        status: 'downloading',
+        message: `Downloading: ${percent}% (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`,
+        percent
+    });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateStatusToAllWindows({ status: 'downloaded', version: info.version, message: 'Update downloaded. Ready to install.' });
+    const targetWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getAllWindows()[0];
+    if (targetWindow) {
+        dialog.showMessageBox(targetWindow, {
+            type: 'info',
+            title: 'Update Ready',
+            message: 'Update downloaded',
+            detail: `Version ${info.version} has been downloaded. Restart now to install?`,
+            buttons: ['Restart Now', 'Later'],
+            defaultId: 0,
+            cancelId: 1
+        }).then((result) => {
+            if (result.response === 0) autoUpdater.quitAndInstall();
+        });
+    }
+});
+
+ipcMain.handle('check-for-updates', () => {
+    if (!app.isPackaged) {
+        return { success: false, error: 'Update checking is only available in the packaged application.', isDev: true };
+    }
+    console.log('[UPDATE] Manual update check requested');
+
+    // Timeout: if no update event fires within 30s, send an error to the UI
+    const timeoutId = setTimeout(() => {
+        sendUpdateStatusToAllWindows({ status: 'error', message: 'Update check timed out. Check your internet connection.' });
+    }, 30000);
+    const clearTimer = () => clearTimeout(timeoutId);
+    autoUpdater.once('update-available', clearTimer);
+    autoUpdater.once('update-not-available', clearTimer);
+    autoUpdater.once('error', clearTimer);
+
+    // Fire and forget — events drive the UI, not the return value
+    try {
+        const p = autoUpdater.checkForUpdates();
+        if (p && p.catch) {
+            p.catch((err) => {
+                clearTimer();
+                const msg = (err && err.message) ? err.message : String(err || 'Unknown error');
+                console.error('[UPDATE] checkForUpdates error:', msg);
+                sendUpdateStatusToAllWindows({ status: 'error', message: msg });
+            });
+        }
+    } catch (err) {
+        clearTimer();
+        const msg = (err && err.message) ? err.message : String(err || 'Unknown error');
+        console.error('[UPDATE] checkForUpdates threw:', msg);
+        sendUpdateStatusToAllWindows({ status: 'error', message: msg });
+    }
+
+    return { success: true, currentVersion: app.getVersion(), message: 'Checking for updates...' };
+});
+ipcMain.handle('get-app-version', () => app.getVersion());
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Keep a global reference of the window object
 let mainWindow;
@@ -76,7 +200,7 @@ function createWindow() {
             contextIsolation: true
         },
         autoHideMenuBar: true,
-        icon: path.join(__dirname, 'assets/android-chrome-512x512.png'), // App icon (use PNG for Linux compatibility)
+        icon: path.join(__dirname, process.platform === 'win32' ? 'assets/app-icon.ico' : 'assets/android-chrome-512x512.png'),
         title: 'Matrix Stirling Engine'
     });
 

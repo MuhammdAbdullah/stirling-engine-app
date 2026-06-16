@@ -69,6 +69,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveCsv: (filePath, rows) => ipcRenderer.invoke('save-csv', { filePath, rows }),
     chooseCsvPath: () => ipcRenderer.invoke('choose-csv-path'),
     
+    // App version
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+    // Auto-updater
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+    onUpdateStatus: (callback) => {
+        ipcRenderer.on('update-status', (event, data) => callback(data));
+    },
+
     // Remove listeners to prevent memory leaks
     removeAllListeners: (channel) => {
         ipcRenderer.removeAllListeners(channel);
