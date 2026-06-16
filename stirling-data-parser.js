@@ -1,14 +1,14 @@
 // Stirling Engine Data Parser
 // Handles three packet types from USB COM port
 // 1) 7-byte PV packet: [0xAD,0xAD] + pressure(2 bytes, big-endian signed) + volume(1 byte index) + [0xDA,0xDA]
-// 2) 8-byte RT packet: [0xCD,0xCD] + rpm(2 bytes, big-endian) + temperature(2 bytes, big-endian) + [0xDC,0xDC]
+// 2) 10-byte RT packet: [0xCD,0xCD] + rpm(2 bytes, big-endian uint16) + temperature(4 bytes, big-endian IEEE 754 float32) + [0xDC,0xDC]
 // 3) 8-byte Power packet: [0xA5,0xA5] + power(4 bytes, big-endian float32) + [0xA6,0xA6]
 
 class StirlingDataParser {
     constructor() {
         // Supported packet identifiers
         this.PV_PACKET_SIZE = 7;
-        this.RT_PACKET_SIZE = 8;
+        this.RT_PACKET_SIZE = 10;
         this.PV_HEADER = [0xAD, 0xAD];
         this.PV_FOOTER = [0xDA, 0xDA];
         this.RT_HEADER = [0xCD, 0xCD];
@@ -89,7 +89,7 @@ class StirlingDataParser {
                     continue;
                 }
             } else if (headerType === 'RT') {
-                if (packet[6] === this.RT_FOOTER[0] && packet[7] === this.RT_FOOTER[1]) {
+                if (packet[8] === this.RT_FOOTER[0] && packet[9] === this.RT_FOOTER[1]) {
                     results.push(this.parseRTPacket(packet));
                     this.buffer = this.buffer.slice(start + needed);
                     continue;
@@ -150,14 +150,16 @@ class StirlingDataParser {
             volumeReadings: [],
             rpm: 0,
             heaterTemperature: 0,
-            footer: [packet[6], packet[7]], // 0xDC, 0xDC
+            footer: [packet[8], packet[9]], // 0xDC, 0xDC
             rawData: packet,
             timestamp: new Date()
         };
 
-        // RPM (bytes 2..3), Temperature (bytes 4..5) big-endian
+        // RPM (bytes 2..3), big-endian uint16
         result.rpm = (packet[2] << 8) | packet[3];
-        result.heaterTemperature = (packet[4] << 8) | packet[5];
+        // Temperature (bytes 4..7), big-endian IEEE 754 float32
+        const tempView = new DataView(new Uint8Array([packet[4], packet[5], packet[6], packet[7]]).buffer);
+        result.heaterTemperature = tempView.getFloat32(0, false);
 
         return result;
     }

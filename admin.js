@@ -1,511 +1,627 @@
-// Admin Window Script
-document.addEventListener('DOMContentLoaded', function() {
-    // Get references to HTML elements
-    const clearAllBtn = document.getElementById('clearAllBtn');
-    const exportDataBtn = document.getElementById('exportDataBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const clearDebugBtn = document.getElementById('clearDebugBtn');
-    
-    // Status overview elements
-    const adminSystemStatus = document.getElementById('adminSystemStatus');
-    const adminPacketCount = document.getElementById('adminPacketCount');
-    const adminDataRate = document.getElementById('adminDataRate');
-    const adminLastUpdate = document.getElementById('adminLastUpdate');
-    
-    // Debug elements
-    const rawDataDisplay = document.getElementById('rawDataDisplay');
-    const parsedDataDisplay = document.getElementById('parsedDataDisplay');
-    const processedDataDisplay = document.getElementById('processedDataDisplay');
-    const connectionInfoDisplay = document.getElementById('connectionInfoDisplay');
-    const statsDisplay = document.getElementById('statsDisplay');
-    const sentDataDisplay = document.getElementById('sentDataDisplay');
-    
-    // Data storage
-    let rawDataBuffer = [];
-    let parsedDataBuffer = [];
-    let processedDataBuffer = [];
-    let connectionLog = [];
-    let sentCommandsBuffer = [];
-    let dataStats = {
-        totalPackets: 0,
-        totalBytes: 0,
-        lastPacketTime: null,
-        timestamps: [],
-        previousPacketTime: null,
-        averagePacketSize: 0,
-        dataRate: 0
+// Admin Panel Script — Matrix Stirling Engine
+(function initAdminPanel() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdminPanel);
+    return;
+  }
+
+    // ── Tab switching ──────────────────────────────────────────────────────────
+    window.switchAdminTab = function (tabName, clickedButton) {
+        document.querySelectorAll('.tab-content').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-button').forEach(function (b) {
+            b.classList.remove('active', 'border-primary');
+            b.classList.add('border-transparent');
+        });
+        var tab = document.getElementById(tabName + 'Tab');
+        if (tab) tab.classList.add('active');
+        if (clickedButton) {
+            clickedButton.classList.add('active', 'border-primary');
+            clickedButton.classList.remove('border-transparent');
+        }
     };
 
-    // Parser and RX buffer
-    let stirlingParser = null;
-    if (typeof StirlingDataParser !== 'undefined') {
-        try { stirlingParser = new StirlingDataParser(); } catch (e) {}
-    }
-    let rxBuffer = new Uint8Array(0);
-    
-    // Initialize
-    setupEventListeners();
-    setupDebugTabs();
-    setupIpcListeners();
-    syncInitialStatus();
-    
-    // Set up event listeners
-    function setupEventListeners() {
-        clearAllBtn.addEventListener('click', clearAllData);
-        exportDataBtn.addEventListener('click', exportData);
-        refreshBtn.addEventListener('click', refreshData);
-        clearDebugBtn.addEventListener('click', clearDebugData);
-    }
-    
-    function setupDebugTabs() {
-        const tabs = document.querySelectorAll('.debug-tab');
-        const contents = document.querySelectorAll('.debug-tab-content');
-        function tabIdFor(name) {
-            if (name === 'raw') return 'rawDataTab';
-            if (name === 'parsed') return 'parsedDataTab';
-            if (name === 'processed') return 'processedDataTab';
-            if (name === 'connection') return 'connectionTab';
-            if (name === 'stats') return 'statsTab';
-            if (name === 'sent') return 'sentDataTab';
-            return name + 'Tab';
-        }
-        
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Remove active class from all tabs and contents
-                tabs.forEach(t => t.classList.remove('active'));
-                contents.forEach(c => c.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding content
-                tab.classList.add('active');
-                const targetTab = tab.getAttribute('data-tab');
-                const targetId = tabIdFor(targetTab);
-                const targetEl = document.getElementById(targetId);
-                if (targetEl) { targetEl.classList.add('active'); }
+    // ── Back button — close the admin window ───────────────────────────────────
+    var backBtn = document.getElementById('adminBackBtn');
+    if (backBtn) backBtn.addEventListener('click', function () {
+        if (typeof window.adminGoBack === 'function') { window.adminGoBack(); } else { window.close(); }
+    });
 
-                // Refresh displays when switching back to a tab
-                try { updateAllDisplays(); } catch (_) {}
-            });
+    // ── Theme selector ─────────────────────────────────────────────────────────
+    var themeSel = document.getElementById('adminThemeSelector');
+    function applyAdminLogo(theme) {
+        var logo = document.getElementById('admin-logo');
+        if (logo) logo.src = theme === 'dark'
+            ? 'assets/Matrix 2024 White_Thermodynamics.png'
+            : 'assets/Matrix 2024_Thermodynamics.png';
+    }
+    if (themeSel) {
+        var savedTheme = localStorage.getItem('theme') || 'dark';
+        themeSel.value = savedTheme;
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        applyAdminLogo(savedTheme);
+        themeSel.addEventListener('change', function () {
+            var val = themeSel.value;
+            localStorage.setItem('theme', val);
+            document.documentElement.setAttribute('data-theme', val);
+            applyAdminLogo(val);
         });
     }
 
-    function setupIpcListeners() {
+    // ── System status badge ────────────────────────────────────────────────────
+    var statusBadge = document.getElementById('adminSystemStatus');
+
+    function updateSystemStatus(status) {
+        if (!statusBadge) return;
+        if (status && status.connected) {
+            statusBadge.textContent = 'SYSTEM ONLINE';
+            statusBadge.className = 'badge badge-success badge-sm font-bold tracking-wider uppercase';
+        } else if (status && status.error) {
+            statusBadge.textContent = 'SYSTEM ERROR';
+            statusBadge.className = 'badge badge-warning badge-sm font-bold tracking-wider uppercase';
+        } else {
+            statusBadge.textContent = 'SYSTEM OFFLINE';
+            statusBadge.className = 'badge badge-error badge-sm font-bold tracking-wider uppercase';
+        }
+    }
+
+    // ── System Log helpers ─────────────────────────────────────────────────────
+    function addAdminLog(message, type) {
+        type = type || 'info';
+        var c = document.getElementById('adminLogContainer');
+        if (!c) return;
+        var entry = document.createElement('div');
+        entry.className = 'log-entry';
+        var ts = new Date().toLocaleTimeString();
+        entry.innerHTML = '<span class="log-timestamp">[' + ts + ']</span>'
+                        + '<span class="log-' + type + '"> ' + escapeHtml(message) + '</span>';
+        c.appendChild(entry);
+        c.scrollTop = c.scrollHeight;
+        while (c.children.length > 500) c.removeChild(c.firstChild);
+    }
+
+    window.adminClearLog = function () {
+        var c = document.getElementById('adminLogContainer');
+        if (!c) return;
+        c.innerHTML = '<div class="log-entry"><span class="log-timestamp">[' + new Date().toLocaleTimeString() + ']</span>'
+                    + '<span class="log-warning"> Log cleared</span></div>';
+    };
+
+    window.adminExportLog = function () {
+        var c = document.getElementById('adminLogContainer');
+        if (!c) return;
+        var blob = new Blob([c.innerText], { type: 'text/plain' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'stirling-log-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
+    // ── Raw Data Stream helpers ────────────────────────────────────────────────
+    function addRawDataEntry(data, type) {
+        type = type || 'hex';
+        var c = document.getElementById('rawDataContainer');
+        if (!c) return;
+        var ts = new Date().toLocaleTimeString();
+        var displayData = (type === 'hex')
+            ? Array.from(data).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(' ')
+            : String(data);
+        var entry = document.createElement('div');
+        entry.className = 'raw-data-entry';
+        entry.innerHTML = '<span class="log-timestamp">[' + ts + ']</span>'
+                        + '<span class="raw-data-' + type + '"> ' + escapeHtml(displayData) + '</span>';
+        c.appendChild(entry);
+        c.scrollTop = c.scrollHeight;
+        while (c.children.length > 2000) c.removeChild(c.firstChild);
+    }
+
+    window.clearRawData = function () {
+        var c = document.getElementById('rawDataContainer');
+        if (!c) return;
+        c.innerHTML = '<div class="raw-data-entry"><span class="log-timestamp">[' + new Date().toLocaleTimeString() + ']'
+                    + ' Raw data cleared</span></div>';
+    };
+
+    window.exportRawData = function () {
+        var c = document.getElementById('rawDataContainer');
+        if (!c) return;
+        var blob = new Blob([c.innerText], { type: 'text/plain' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'stirling-raw-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
+    // ── IPC listeners (serial data, connection, sent commands) ────────────────
+    try {
+        if (window.electronAPI && window.electronAPI.onRawData) {
+            window.electronAPI.onRawData(function (event, data) {
+                try {
+                    var arr = Array.isArray(data) ? data
+                            : (data instanceof Uint8Array ? Array.from(data)
+                            : Array.from(new Uint8Array(data)));
+                    addRawDataEntry(arr, 'hex');
+                    updateSystemStatus({ connected: true });
+                } catch (e) {}
+            });
+        }
+
+        var _lastConnectionKey = null;
+        if (window.electronAPI && window.electronAPI.onConnectionStatus) {
+            window.electronAPI.onConnectionStatus(function (event, status) {
+                updateSystemStatus(status);
+                var msg = status.connected
+                    ? 'Connected' + (status.port ? ' on ' + status.port : '')
+                    : (status.error ? 'Error: ' + status.error : 'Disconnected');
+                var type = status.connected ? 'success' : (status.error ? 'error' : 'warning');
+                var key = status.connected ? ('connected:' + (status.port || '')) : ('disconnected:' + (status.error || ''));
+                if (key !== _lastConnectionKey) {
+                    _lastConnectionKey = key;
+                    addAdminLog(msg, type);
+                }
+
+                // Bootloader connection status
+                var isBootloader = status.isBootloader || status.isDFU || false;
+                var connectBtn = document.getElementById('connectBtn');
+                if (status.connected && isBootloader) {
+                    bootloaderConnected = true;
+                    clearBootloaderConnectTimer();
+                    if (connectBtn) { connectBtn.textContent = 'Disconnect'; connectBtn.disabled = false; }
+                    setBootloaderButtonState('connected');
+                    addBootloaderLog('Device connected', 'success');
+                } else if (!status.connected && isBootloader) {
+                    bootloaderConnected = false; hexFileLoaded = false;
+                    if (connectBtn) { connectBtn.textContent = 'Connect'; connectBtn.disabled = false; }
+                    setBootloaderButtonState('disconnected');
+                    addBootloaderLog('Disconnected', 'info');
+                }
+            });
+        }
+
+        if (window.electronAPI && window.electronAPI.onSentCommand) {
+            window.electronAPI.onSentCommand(function (event, commandData) {
+                try {
+                    var msg;
+                    if (commandData.type === 'heater') {
+                        msg = 'Heater ' + (commandData.value === 0 ? 'OFF' : 'setpoint ' + commandData.value + '°C');
+                    } else if (commandData.type === 'aux') {
+                        msg = 'Aux output ' + commandData.value + '%';
+                    } else {
+                        msg = 'Command [' + (commandData.type || '?') + '] = ' + commandData.value;
+                    }
+                    addAdminLog(msg, 'info');
+                } catch (e) {}
+            });
+        }
+
+        if (window.electronAPI && window.electronAPI.onBootloaderProgress) {
+            window.electronAPI.onBootloaderProgress(function (data) {
+                var mode = data.step === 'erase' ? 'erase' : (data.step === 'verify' ? 'verify' : 'program');
+                showFirmwareProgress(data.label, data.progress, mode);
+                updateFirmwareProgress(data.label, data.progress);
+                if (data.progress >= 100) setTimeout(hideFirmwareProgress, 3000);
+            });
+        }
+
+        if (window.electronAPI && window.electronAPI.onUpdateStatus) {
+            window.electronAPI.onUpdateStatus(function (event, updateInfo) {
+                handleUpdateStatus(updateInfo);
+            });
+        }
+    } catch (e) {}
+
+    // Sync initial connection status
+    try {
+        if (window.electronAPI && window.electronAPI.getConnectionStatus) {
+            window.electronAPI.getConnectionStatus().then(function (status) {
+                updateSystemStatus(status);
+            }).catch(function () {});
+        }
+    } catch (e) {}
+
+    // ── Version display ────────────────────────────────────────────────────────
+    try {
+        if (window.electronAPI && window.electronAPI.getAppVersion) {
+            window.electronAPI.getAppVersion().then(function (v) {
+                var ver = (v && (v.version || v)) || '—';
+                var el1 = document.getElementById('currentVersionDisplay');
+                var el2 = document.getElementById('aboutVersion');
+                if (el1) el1.textContent = ver;
+                if (el2) el2.textContent = ver;
+            }).catch(function () {});
+        }
+    } catch (e) {}
+
+    // ── Temperature unit (Settings tab) ───────────────────────────────────────
+    window.setTemperatureUnit = function (unit) {
+        localStorage.setItem('temp-unit', unit);
+        addAdminLog('Temperature unit changed to ' + (unit === 'F' ? 'Fahrenheit (°F)' : 'Celsius (°C)'), 'success');
+    };
+
+    // Restore saved unit on load
+    var savedUnit = localStorage.getItem('temp-unit') || 'C';
+    document.querySelectorAll('input[name="tempUnit"]').forEach(function (r) {
+        r.checked = r.value === savedUnit;
+    });
+
+    // ── Bootloader UI ──────────────────────────────────────────────────────────
+    var bootloaderConnected = false;
+    var hexFileLoaded = false;
+    var bootloaderConnectTimer = null;
+
+    function clearBootloaderConnectTimer() {
+        if (bootloaderConnectTimer !== null) {
+            clearTimeout(bootloaderConnectTimer);
+            bootloaderConnectTimer = null;
+        }
+    }
+
+    function addBootloaderLog(message, type) {
+        type = type || 'info';
+        var c = document.getElementById('bootloaderLog');
+        if (!c) return;
+        var entry = document.createElement('div');
+        entry.className = 'bootloader-log-entry ' + type;
+        entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + message;
+        c.appendChild(entry);
+        c.scrollTop = c.scrollHeight;
+    }
+
+    function showFirmwareProgress(label, percent, mode) {
+        var section = document.getElementById('firmwareProgressSection');
+        var labelEl  = document.getElementById('firmwareProgressLabel');
+        var fillEl   = document.getElementById('firmwareProgressFill');
+        var textEl   = document.getElementById('firmwareProgressText');
+        if (!section) return;
+        section.style.display = 'block';
+        if (labelEl) labelEl.textContent = label;
+        if (fillEl) {
+            fillEl.value = percent;
+            fillEl.className = 'progress w-full h-5 '
+                + (mode === 'erase' ? 'progress-warning' : mode === 'verify' ? 'progress-info' : 'progress-success');
+        }
+        if (textEl) textEl.textContent = percent + '%';
+    }
+
+    function hideFirmwareProgress() {
+        var s = document.getElementById('firmwareProgressSection');
+        if (s) s.style.display = 'none';
+    }
+
+    function updateFirmwareProgress(label, percent) {
+        var l = document.getElementById('firmwareProgressLabel');
+        var f = document.getElementById('firmwareProgressFill');
+        var t = document.getElementById('firmwareProgressText');
+        if (l) l.textContent = label;
+        if (f) f.value = percent;
+        if (t) t.textContent = Math.round(percent) + '%';
+    }
+
+    function setBlStat(connText, connClass, opText, opDesc) {
+        var conn = document.getElementById('blStatConnection');
+        var op   = document.getElementById('blStatOperation');
+        var opD  = document.getElementById('blStatOperationDesc');
+        var dot  = conn && conn.parentElement && conn.parentElement.querySelector('.animate-ping');
+        var dotS = conn && conn.parentElement && conn.parentElement.querySelector('.relative.inline-flex');
+        if (conn) { conn.textContent = connText; conn.className = 'font-bold text-lg ' + connClass; }
+        if (dot)  { dot.className  = dot.className.replace(/bg-\S+/, 'bg-' + connClass.replace('text-','')); }
+        if (dotS) { dotS.className = dotS.className.replace(/bg-\S+/, 'bg-' + connClass.replace('text-','')); }
+        if (op)   op.textContent = opText;
+        if (opD)  opD.textContent = opDesc;
+    }
+
+    function setBootloaderButtonState(state) {
+        var ids = ['connectBtn', 'triggerBootloaderBtn', 'loadHexBtn', 'eraseProgVerifyBtn', 'runAppBtn'];
+        var btns = {};
+        ids.forEach(function (id) { btns[id] = document.getElementById(id); });
+        function en(id, val) { if (btns[id]) btns[id].disabled = !val; }
+        switch (state) {
+            case 'disconnected':
+                en('connectBtn', false); en('triggerBootloaderBtn', true);
+                en('loadHexBtn', false); en('eraseProgVerifyBtn', false); en('runAppBtn', false);
+                setBlStat('STANDBY', 'text-warning', 'IDLE', 'Ready'); break;
+            case 'connected':
+                en('connectBtn', true); en('triggerBootloaderBtn', false);
+                en('loadHexBtn', true); en('eraseProgVerifyBtn', false); en('runAppBtn', false);
+                setBlStat('CONNECTED', 'text-success', 'READY', 'Load hex file'); break;
+            case 'hex_loaded':
+                en('connectBtn', true); en('triggerBootloaderBtn', false);
+                en('loadHexBtn', true); en('eraseProgVerifyBtn', true); en('runAppBtn', false);
+                setBlStat('CONNECTED', 'text-success', 'HEX OK', 'Ready to flash'); break;
+            case 'busy':
+                ids.forEach(function (id) { en(id, false); });
+                setBlStat('BUSY', 'text-info', 'FLASHING', 'Do not disconnect'); break;
+            case 'ready_to_run':
+                ids.filter(function (id) { return id !== 'runAppBtn'; }).forEach(function (id) { en(id, false); });
+                en('runAppBtn', true);
+                setBlStat('CONNECTED', 'text-success', 'VERIFIED', 'Click Run Application'); break;
+        }
+    }
+
+    setBootloaderButtonState('disconnected');
+
+    window.triggerBootloader = async function () {
+        var btn = document.getElementById('triggerBootloaderBtn');
+        if (btn) btn.disabled = true;
+        addBootloaderLog('Sending bootloader trigger…', 'info');
         try {
-            if (window.electronAPI && window.electronAPI.onRawData) {
-                window.electronAPI.onRawData(function(event, data) {
-                    try {
-                        console.log('[ADMIN] raw-data event received');
-                        var arr = Array.isArray(data) ? data : (data instanceof Uint8Array ? Array.from(data) : Array.from(new Uint8Array(data)));
-                        addRawData(arr);
-                        // Mark system online when data flows
-                        updateSystemStatus({ connected: true });
-                        // Append to buffer and try to parse complete frames
-                        appendToBufferAndParse(arr);
-                        updateDataStats(arr.length);
-                    } catch (e) {
-                        console.error('[ADMIN] raw-data handling error:', e);
-                        // ignore
-                    }
-                });
-            }
-            if (window.electronAPI && window.electronAPI.onConnectionStatus) {
-                window.electronAPI.onConnectionStatus(function(event, status) {
-                    console.log('[ADMIN] connection-status:', status);
-                    updateSystemStatus(status);
-                    addConnectionInfo(status);
-                });
-            }
-            if (window.electronAPI && window.electronAPI.onSentCommand) {
-                window.electronAPI.onSentCommand(function(event, commandData) {
-                    try {
-                        console.log('[ADMIN] sent-command event received');
-                        addSentCommand(commandData);
-                    } catch (e) {
-                        console.error('[ADMIN] sent-command handling error:', e);
-                    }
-                });
+            if (window.electronAPI && window.electronAPI.sendBootloader) {
+                var result = await window.electronAPI.sendBootloader(1);
+                if (result.success) {
+                    addBootloaderLog('Bootloader command sent — click Connect when device is ready.', 'info');
+                    var cb = document.getElementById('connectBtn');
+                    if (cb) cb.disabled = false;
+                    clearBootloaderConnectTimer();
+                    bootloaderConnectTimer = setTimeout(function () {
+                        bootloaderConnectTimer = null;
+                        if (!bootloaderConnected) {
+                            var connectBtn = document.getElementById('connectBtn');
+                            if (connectBtn) connectBtn.disabled = true;
+                            var trigBtn = document.getElementById('triggerBootloaderBtn');
+                            if (trigBtn) trigBtn.disabled = false;
+                            addBootloaderLog('Bootloader not detected after 30 s — retrigger when ready.', 'warning');
+                        }
+                    }, 30000);
+                } else {
+                    addBootloaderLog('Failed: ' + (result.error || 'Unknown'), 'error');
+                    if (btn) btn.disabled = false;
+                }
+            } else {
+                addBootloaderLog('Bootloader control not available on this hardware.', 'warning');
+                if (btn) btn.disabled = false;
             }
         } catch (e) {
-            // ignore
+            addBootloaderLog('Error: ' + e.message, 'error');
+            if (btn) btn.disabled = false;
         }
-    }
-
-    function syncInitialStatus() {
-        try {
-            if (window.electronAPI && window.electronAPI.getConnectionStatus) {
-                window.electronAPI.getConnectionStatus().then(function(status){
-                    updateSystemStatus(status);
-                    addConnectionInfo(status);
-                }).catch(function(){})
-            }
-        } catch (e) {}
-    }
-
-    function appendToBufferAndParse(byteArray) {
-        // Concatenate existing buffer with new data
-        var incoming = new Uint8Array(byteArray);
-        var combined = new Uint8Array(rxBuffer.length + incoming.length);
-        combined.set(rxBuffer, 0);
-        combined.set(incoming, rxBuffer.length);
-        rxBuffer = combined;
-
-        // Look for 7-byte PV frames (AD AD ... DA DA) and 8-byte RT frames (CD CD ... DC DC)
-        while (rxBuffer.length >= 7) {
-            // find header for either PV or RT
-            var start = -1;
-            for (var i = 0; i <= rxBuffer.length - 2; i++) {
-                var a = rxBuffer[i], b = rxBuffer[i + 1];
-                if ((a === 0xAD && b === 0xAD) || (a === 0xCD && b === 0xCD)) { start = i; break; }
-            }
-            if (start < 0) {
-                // keep last byte only
-                rxBuffer = rxBuffer.slice(rxBuffer.length - 1);
-                break;
-            }
-            // Attempt PV (7-byte)
-            var handled = false;
-            if (rxBuffer.length >= start + 7) {
-                var pv = rxBuffer.slice(start, start + 7);
-                if (pv[0] === 0xAD && pv[1] === 0xAD && pv[5] === 0xDA && pv[6] === 0xDA) {
-                    try {
-                        var parsedPV = (stirlingParser && typeof stirlingParser.parsePVPacket === 'function') ? stirlingParser.parsePVPacket(Array.from(pv)) : simpleParsePV(pv);
-                        if (parsedPV) { addParsedData(parsedPV); addProcessedData(parsedPV); }
-                    } catch (e) {}
-                    rxBuffer = rxBuffer.slice(start + 7);
-                    handled = true;
-                }
-            }
-            if (handled) { continue; }
-            // Attempt RT (8-byte)
-            if (rxBuffer.length >= start + 8) {
-                var rt = rxBuffer.slice(start, start + 8);
-                if (rt[0] === 0xCD && rt[1] === 0xCD && rt[6] === 0xDC && rt[7] === 0xDC) {
-                    try {
-                        var parsedRT = (stirlingParser && typeof stirlingParser.parseRTPacket === 'function') ? stirlingParser.parseRTPacket(Array.from(rt)) : simpleParseRT(rt);
-                        if (parsedRT) { addParsedData(parsedRT); addProcessedData(parsedRT); }
-                    } catch (e) {}
-                    rxBuffer = rxBuffer.slice(start + 8);
-                    handled = true;
-                }
-            }
-            if (handled) { continue; }
-            // Not valid: skip one byte
-            rxBuffer = rxBuffer.slice(start + 1);
-        }
-    }
-
-    function simpleParsePV(frame) {
-        // Minimal parser matching 7-byte PV layout
-        var packet = Array.from(frame);
-        var res = {
-            header: [packet[0], packet[1]],
-            pressureReadings: [],
-            volumeReadings: [],
-            rpm: 0,
-            heaterTemperature: 0,
-            footer: [packet[5], packet[6]],
-            rawData: packet,
-            timestamp: new Date()
-        };
-        // Pressure (2 bytes big-endian signed) at 2-3
-        var raw = (packet[2] << 8) | packet[3];
-        var pressure = raw >= 0x8000 ? raw - 0x10000 : raw;
-        res.pressureReadings.push(pressure);
-        // Volume index at 4
-        var volumeIndex = packet[4];
-        var volumeValue = (stirlingParser && typeof stirlingParser.getVolumeValue === 'function') ? stirlingParser.getVolumeValue(volumeIndex) : volumeIndex;
-        res.volumeReadings.push(volumeValue);
-        return res;
-    }
-
-    function simpleParseRT(frame) {
-        // Minimal parser matching 8-byte RPM/Temp layout
-        var packet = Array.from(frame);
-        var res = {
-            header: [packet[0], packet[1]],
-            pressureReadings: [],
-            volumeReadings: [],
-            rpm: (packet[2] << 8) | packet[3],
-            heaterTemperature: (packet[4] << 8) | packet[5],
-            footer: [packet[6], packet[7]],
-            rawData: packet,
-            timestamp: new Date()
-        };
-        return res;
-    }
-    
-    function clearAllData() {
-        rawDataBuffer = [];
-        parsedDataBuffer = [];
-        processedDataBuffer = [];
-        connectionLog = [];
-        sentCommandsBuffer = [];
-        dataStats = {
-            totalPackets: 0,
-            totalBytes: 0,
-            lastPacketTime: null,
-            averagePacketSize: 0,
-            dataRate: 0
-        };
-        
-        updateAllDisplays();
-        console.log('All admin data cleared');
-    }
-    
-    function exportData() {
-        const exportData = {
-            timestamp: new Date().toISOString(),
-            rawData: rawDataBuffer,
-            parsedData: parsedDataBuffer,
-            processedData: processedDataBuffer,
-            connectionLog: connectionLog,
-            statistics: dataStats
-        };
-        
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `stirling-engine-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-    
-    function refreshData() {
-        updateAllDisplays();
-        console.log('Admin data refreshed');
-    }
-    
-    function clearDebugData() {
-        rawDataDisplay.textContent = 'Debug data cleared...';
-        parsedDataDisplay.textContent = 'Debug data cleared...';
-        processedDataDisplay.textContent = 'Debug data cleared...';
-        connectionInfoDisplay.textContent = 'Debug data cleared...';
-        statsDisplay.textContent = 'Debug data cleared...';
-        sentDataDisplay.textContent = 'Debug data cleared...';
-    }
-    
-    function updateAllDisplays() {
-        rawDataDisplay.textContent = rawDataBuffer.length > 0 ? rawDataBuffer.join('\n') : 'No raw data yet...';
-        parsedDataDisplay.textContent = parsedDataBuffer.length > 0 ? parsedDataBuffer.join('\n\n') : 'No parsed data yet...';
-        processedDataDisplay.textContent = processedDataBuffer.length > 0 ? processedDataBuffer.join('\n\n') : 'No processed data yet...';
-        connectionInfoDisplay.textContent = connectionLog.length > 0 ? connectionLog.join('\n\n') : 'No connection info yet...';
-        
-        const statsText = `Total Packets: ${dataStats.totalPackets}
-Total Bytes: ${dataStats.totalBytes}
-Average Packet Size: ${dataStats.averagePacketSize.toFixed(2)} bytes
-Data Rate: ${dataStats.dataRate.toFixed(2)} packets/sec
-Last Packet: ${dataStats.lastPacketTime ? dataStats.lastPacketTime.toLocaleTimeString() : 'None'}`;
-        statsDisplay.textContent = statsText;
-        
-        sentDataDisplay.textContent = sentCommandsBuffer.length > 0 ? sentCommandsBuffer.join('\n\n') : 'No commands sent yet...';
-    }
-    
-    // Functions to receive data from main window
-    let pendingUIUpdate = false;
-    let lastUIUpdateMs = 0;
-
-    function scheduleUIUpdate() {
-        const now = Date.now();
-        if (now - lastUIUpdateMs > 100) {
-            lastUIUpdateMs = now;
-            updateAllDisplays();
-            pendingUIUpdate = false;
-        } else if (!pendingUIUpdate) {
-            pendingUIUpdate = true;
-            setTimeout(function(){
-                lastUIUpdateMs = Date.now();
-                updateAllDisplays();
-                pendingUIUpdate = false;
-            }, 100);
-        }
-    }
-
-    function addRawData(data) {
-        const timestamp = new Date().toLocaleTimeString();
-        const hexString = Array.isArray(data) ? 
-            data.map(b => b.toString(16).padStart(2, '0')).join(' ') :
-            data.toString('hex');
-        
-        rawDataBuffer.push(`[${timestamp}] ${hexString}`);
-        
-        // Keep only last 100 entries
-        if (rawDataBuffer.length > 100) {
-            rawDataBuffer.shift();
-        }
-        scheduleUIUpdate();
-    }
-    
-    function addParsedData(parsedData) {
-        const timestamp = new Date().toLocaleTimeString();
-        const dataString = stirlingParser ? stirlingParser.formatForDisplay(parsedData) : JSON.stringify(parsedData, null, 2);
-        
-        parsedDataBuffer.push(`[${timestamp}] ${dataString}`);
-        
-        // Keep only last 20 entries
-        if (parsedDataBuffer.length > 20) {
-            parsedDataBuffer.shift();
-        }
-        
-        parsedDataDisplay.textContent = parsedDataBuffer.join('\n\n');
-        parsedDataDisplay.scrollTop = parsedDataDisplay.scrollHeight;
-    }
-    
-    function addProcessedData(parsedData) {
-        const timestamp = new Date().toLocaleTimeString();
-        
-        // Create detailed processed data breakdown
-        let processedString = `[${timestamp}] PROCESSED DATA BREAKDOWN
-========================================
-
-📊 PACKET STRUCTURE:
-  Header: 0x${parsedData.header[0].toString(16).padStart(2, '0')} 0x${parsedData.header[1].toString(16).padStart(2, '0')}
-  Footer: 0x${parsedData.footer[0].toString(16).padStart(2, '0')} 0x${parsedData.footer[1].toString(16).padStart(2, '0')}
-  Packet Size: ${parsedData.rawData ? parsedData.rawData.length : 0} bytes
-
-🔧 PRESSURE READINGS (${parsedData.pressureReadings.length}):
-`;
-        
-        parsedData.pressureReadings.forEach((pressure, index) => {
-            processedString += `  Pressure ${index + 1}: ${pressure} (0x${pressure.toString(16).padStart(4, '0')})\n`;
-        });
-        
-        processedString += `\n📏 VOLUME READINGS (${parsedData.volumeReadings.length}):
-`;
-        
-        parsedData.volumeReadings.forEach((volume, index) => {
-            processedString += `  Volume ${index + 1}: ${volume.toFixed(2)} (converted from index)\n`;
-        });
-        
-        processedString += `\n📈 CALCULATED VALUES:
-  Average Pressure: ${parsedData.pressureReadings.length > 0 ? (parsedData.pressureReadings.reduce((a, b) => a + b, 0) / parsedData.pressureReadings.length).toFixed(2) : 'N/A'}
-  Average Volume: ${parsedData.volumeReadings.length > 0 ? (parsedData.volumeReadings.reduce((a, b) => a + b, 0) / parsedData.volumeReadings.length).toFixed(2) : 'N/A'}
-  Max Pressure: ${parsedData.pressureReadings.length > 0 ? Math.max(...parsedData.pressureReadings) : 'N/A'}
-  Min Pressure: ${parsedData.pressureReadings.length > 0 ? Math.min(...parsedData.pressureReadings) : 'N/A'}
-  Max Volume: ${parsedData.volumeReadings.length > 0 ? Math.max(...parsedData.volumeReadings).toFixed(2) : 'N/A'}
-  Min Volume: ${parsedData.volumeReadings.length > 0 ? Math.min(...parsedData.volumeReadings).toFixed(2) : 'N/A'}
-
-🎯 DATA VALIDATION:
-  Header Valid: ${parsedData.header[0] === 0xAD && parsedData.header[1] === 0xAD ? '✅ YES' : '❌ NO'}
-  Footer Valid: ${parsedData.footer[0] === 0xDA && parsedData.footer[1] === 0xDA ? '✅ YES' : '❌ NO'}
-  Pressure Count: ${parsedData.pressureReadings.length}
-  Volume Count: ${parsedData.volumeReadings.length}
-
-⏰ TIMESTAMP: ${parsedData.timestamp.toLocaleString()}  (sec: ${typeof parsedData.timeSeconds === 'number' ? parsedData.timeSeconds : 'n/a'}, ms: ${typeof parsedData.timeMilliseconds === 'number' ? parsedData.timeMilliseconds : 'n/a'})
-========================================\n`;
-        
-        processedDataBuffer.push(processedString);
-        
-        // Keep only last 10 entries
-        if (processedDataBuffer.length > 10) {
-            processedDataBuffer.shift();
-        }
-        
-        processedDataDisplay.textContent = processedDataBuffer.join('\n\n');
-        processedDataDisplay.scrollTop = processedDataDisplay.scrollHeight;
-    }
-    
-    function addConnectionInfo(info) {
-        const timestamp = new Date().toLocaleTimeString();
-        const infoString = `[${timestamp}] ${JSON.stringify(info, null, 2)}`;
-        
-        connectionLog.push(infoString);
-        
-        // Keep only last 30 entries
-        if (connectionLog.length > 30) {
-            connectionLog.shift();
-        }
-        
-        connectionInfoDisplay.textContent = connectionLog.join('\n\n');
-        connectionInfoDisplay.scrollTop = connectionInfoDisplay.scrollHeight;
-    }
-    
-    function updateDataStats(packetSize) {
-        dataStats.totalPackets++;
-        dataStats.totalBytes += packetSize;
-        var now = Date.now();
-        dataStats.lastPacketTime = new Date(now);
-        dataStats.averagePacketSize = dataStats.totalBytes / dataStats.totalPackets;
-
-        // Rolling 1-second window for data rate
-        dataStats.timestamps.push(now);
-        while (dataStats.timestamps.length && now - dataStats.timestamps[0] > 1000) {
-            dataStats.timestamps.shift();
-        }
-        const windowMs = dataStats.timestamps.length > 1 ? (dataStats.timestamps[dataStats.timestamps.length - 1] - dataStats.timestamps[0]) : 1;
-        dataStats.dataRate = (dataStats.timestamps.length * 1000) / windowMs;
-
-        // Update status overview
-        adminPacketCount.textContent = dataStats.totalPackets;
-        adminDataRate.textContent = `${dataStats.dataRate ? dataStats.dataRate.toFixed(1) : '0.0'} pps`;
-        adminLastUpdate.textContent = dataStats.lastPacketTime ? dataStats.lastPacketTime.toLocaleTimeString() : 'Never';
-        scheduleUIUpdate();
-    }
-    
-    function updateSystemStatus(status) {
-        if (status.connected) {
-            adminSystemStatus.textContent = 'ONLINE';
-            adminSystemStatus.style.color = '#28a745';
-        } else if (status.error) {
-            adminSystemStatus.textContent = 'ERROR';
-            adminSystemStatus.style.color = '#dc3545';
-        } else {
-            adminSystemStatus.textContent = 'CONNECTING';
-            adminSystemStatus.style.color = '#ffc107';
-        }
-    }
-    
-    function addSentCommand(commandData) {
-        const timestamp = new Date().toLocaleTimeString();
-        let commandString = `[${timestamp}] `;
-        
-        // Format the command based on type
-        if (commandData.type === 'heater') {
-            const value = commandData.value;
-            const status = value === 0 ? 'OFF' : `ON (${value}°C)`;
-            const hexBytes = commandData.bytes.map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-            commandString += `🔥 HEATER COMMAND\n`;
-            commandString += `  Status: ${status}\n`;
-            commandString += `  Value: ${value}\n`;
-            commandString += `  Bytes: ${hexBytes}\n`;
-            commandString += `  Format: ':B${value};\\n' (0x3A 0x42 ${value} 0x3B 0x0A)`;
-        } else if (commandData.type === 'aux') {
-            const value = commandData.value;
-            const hexBytes = commandData.bytes.map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-            commandString += `⚙️ AUX COMMAND\n`;
-            commandString += `  Value: ${value}%\n`;
-            commandString += `  Bytes: ${hexBytes}\n`;
-            commandString += `  Format: ':X${value};\\n' (0x3A 0x58 ${value} 0x3B 0x0A)`;
-        } else {
-            // Generic command
-            const hexBytes = commandData.bytes ? commandData.bytes.map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase()).join(' ') : 'N/A';
-            commandString += `📤 COMMAND: ${commandData.type || 'Unknown'}\n`;
-            commandString += `  Value: ${commandData.value !== undefined ? commandData.value : 'N/A'}\n`;
-            commandString += `  Bytes: ${hexBytes}`;
-        }
-        
-        sentCommandsBuffer.push(commandString);
-        
-        // Keep only last 50 entries
-        if (sentCommandsBuffer.length > 50) {
-            sentCommandsBuffer.shift();
-        }
-        
-        sentDataDisplay.textContent = sentCommandsBuffer.join('\n\n');
-        sentDataDisplay.scrollTop = sentDataDisplay.scrollHeight;
-    }
-    
-    // Expose functions to parent window
-    window.adminAPI = {
-        addRawData,
-        addParsedData,
-        addProcessedData,
-        addConnectionInfo,
-        updateDataStats,
-        updateSystemStatus,
-        addSentCommand
     };
-});
 
+    window.connectBootloader = async function () {
+        var connectBtn = document.getElementById('connectBtn');
+        if (bootloaderConnected) {
+            addBootloaderLog('Disconnecting…', 'info');
+            if (window.electronAPI && window.electronAPI.disconnectFromPort) {
+                await window.electronAPI.disconnectFromPort();
+            }
+            bootloaderConnected = false; hexFileLoaded = false;
+            if (connectBtn) connectBtn.textContent = 'Connect';
+            setBootloaderButtonState('disconnected');
+            addBootloaderLog('Disconnected.', 'info');
+        } else {
+            if (connectBtn) connectBtn.disabled = true;
+            addBootloaderLog('Connecting…', 'info');
+            try {
+                var vid = document.getElementById('usbVidInput').value;
+                var pid = document.getElementById('usbPidInput').value;
+                var result;
+                if (window.electronAPI && window.electronAPI.connectToBootloaderUSB) {
+                    result = await window.electronAPI.connectToBootloaderUSB(vid, pid);
+                }
+                if (result && result.success) {
+                    bootloaderConnected = true;
+                    clearBootloaderConnectTimer();
+                    if (connectBtn) connectBtn.textContent = 'Disconnect';
+                    setBootloaderButtonState('connected');
+                    addBootloaderLog('Connected — load a hex file to continue.', 'success');
+                } else {
+                    addBootloaderLog('Connection failed: ' + ((result && result.error) || 'Unknown'), 'error');
+                    if (connectBtn) connectBtn.disabled = false;
+                }
+            } catch (e) {
+                addBootloaderLog('Error: ' + e.message, 'error');
+                if (connectBtn) connectBtn.disabled = false;
+            }
+        }
+    };
+
+    window.loadHexFile = async function () {
+        if (!window.electronAPI || !window.electronAPI.showOpenDialog) {
+            addBootloaderLog('File dialog not available.', 'error');
+            return;
+        }
+        try {
+            var result = await window.electronAPI.showOpenDialog({
+                filters: [{ name: 'Intel Hex Files', extensions: ['hex'] }],
+                properties: ['openFile']
+            });
+            if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+                var filePath = result.filePaths[0];
+                var label = document.getElementById('hexFilePathLabel');
+                if (label) { label.textContent = filePath; label.classList.add('has-file'); }
+                var fname = filePath.split(/[\\/]/).pop();
+                var hexStat = document.getElementById('blStatHexFile');
+                var hexDesc = document.getElementById('blStatHexDesc');
+                if (hexStat) hexStat.textContent = fname.length > 14 ? fname.slice(0,12)+'…' : fname;
+                if (hexDesc) hexDesc.textContent = 'File selected';
+                if (window.electronAPI && window.electronAPI.loadHexFile) {
+                    var lr = await window.electronAPI.loadHexFile(filePath);
+                    if (lr && lr.success) {
+                        hexFileLoaded = true;
+                        addBootloaderLog('Hex file loaded — click Erase-Program-Verify to flash.', 'success');
+                        setBootloaderButtonState('hex_loaded');
+                    } else {
+                        addBootloaderLog('Load failed: ' + ((lr && lr.error) || 'Unknown'), 'error');
+                    }
+                } else {
+                    hexFileLoaded = true;
+                    addBootloaderLog('Hex file selected: ' + filePath, 'success');
+                    setBootloaderButtonState('hex_loaded');
+                }
+            }
+        } catch (e) {
+            addBootloaderLog('Error: ' + e.message, 'error');
+        }
+    };
+
+    window.eraseProgramVerify = async function () {
+        if (!hexFileLoaded) { addBootloaderLog('Load a hex file first.', 'error'); return; }
+        addBootloaderLog('Starting Erase → Program → Verify sequence…', 'info');
+        setBootloaderButtonState('busy');
+        try {
+            // Step 1: Erase
+            addBootloaderLog('Step 1/3: Erasing flash…', 'info');
+            showFirmwareProgress('Erasing Flash…', 0, 'erase');
+            var er = window.electronAPI && window.electronAPI.bootloaderEraseFlash
+                ? await window.electronAPI.bootloaderEraseFlash() : null;
+            if (!er || !er.success) {
+                hideFirmwareProgress();
+                addBootloaderLog('Erase failed: ' + ((er && er.error) || 'Not available'), 'error');
+                setBootloaderButtonState('hex_loaded');
+                return;
+            }
+            addBootloaderLog('Erase complete.', 'success');
+
+            // Step 2: Program
+            addBootloaderLog('Step 2/3: Programming flash…', 'info');
+            showFirmwareProgress('Programming Flash…', 0, 'program');
+            var pr = window.electronAPI && window.electronAPI.bootloaderProgramFlash
+                ? await window.electronAPI.bootloaderProgramFlash() : null;
+            if (!pr || !pr.success) {
+                hideFirmwareProgress();
+                addBootloaderLog('Program failed: ' + ((pr && pr.error) || 'Not available'), 'error');
+                setBootloaderButtonState('hex_loaded');
+                return;
+            }
+            addBootloaderLog('Program complete.', 'success');
+
+            // Step 3: Verify
+            addBootloaderLog('Step 3/3: Verifying…', 'info');
+            showFirmwareProgress('Verifying…', 0, 'verify');
+            var vr = window.electronAPI && window.electronAPI.bootloaderReadCRC
+                ? await window.electronAPI.bootloaderReadCRC() : null;
+            if (!vr || !vr.success) {
+                hideFirmwareProgress();
+                addBootloaderLog('Verify failed: ' + ((vr && vr.error) || 'Not available'), 'error');
+                setBootloaderButtonState('hex_loaded');
+                return;
+            }
+
+            if (vr.crcMatch) {
+                updateFirmwareProgress('Complete!', 100);
+                setTimeout(hideFirmwareProgress, 2000);
+                addBootloaderLog('All done — click Run Application to start firmware.', 'success');
+                setBootloaderButtonState('ready_to_run');
+            } else {
+                hideFirmwareProgress();
+                addBootloaderLog('CRC mismatch — verify failed. Try again.', 'error');
+                setBootloaderButtonState('hex_loaded');
+            }
+        } catch (e) {
+            hideFirmwareProgress();
+            addBootloaderLog('Error: ' + e.message, 'error');
+            setBootloaderButtonState('hex_loaded');
+        }
+    };
+
+    window.runApplication = async function () {
+        addBootloaderLog('Jumping to application…', 'info');
+        setBootloaderButtonState('busy');
+        if (window.electronAPI && window.electronAPI.bootloaderJumpToApp) {
+            try {
+                var r = await window.electronAPI.bootloaderJumpToApp();
+                if (r && r.success) {
+                    addBootloaderLog('Application is now running.', 'success');
+                } else {
+                    addBootloaderLog('Failed: ' + ((r && r.error) || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                if (e.message && (e.message.includes('disconnected') || e.message.includes('Cannot write'))) {
+                    addBootloaderLog('Device jumped to application (bootloader disconnected — normal).', 'success');
+                } else {
+                    addBootloaderLog('Error: ' + e.message, 'error');
+                }
+            }
+        }
+        bootloaderConnected = false; hexFileLoaded = false;
+        var cb = document.getElementById('connectBtn');
+        if (cb) cb.textContent = 'Connect';
+        setBootloaderButtonState('disconnected');
+    };
+
+    // ── Updates tab ────────────────────────────────────────────────────────────
+    window.checkForUpdates = async function () {
+        var checkBtn       = document.getElementById('checkUpdateBtn');
+        var statusDisplay  = document.getElementById('updateStatusDisplay');
+        var statusMessage  = document.getElementById('updateStatusMessage');
+        var statusContent  = document.getElementById('updateStatusContent');
+
+        if (checkBtn) checkBtn.disabled = true;
+        if (statusDisplay) statusDisplay.textContent = 'Checking…';
+        if (statusMessage) { statusMessage.style.display = 'block'; statusMessage.className = 'update-status-message info'; }
+        if (statusContent) statusContent.textContent = 'Checking for updates…';
+
+        if (!window.electronAPI || !window.electronAPI.checkForUpdates) {
+            // Fallback: show current version as up-to-date
+            var ver = (document.getElementById('currentVersionDisplay') || {}).textContent || '—';
+            if (statusDisplay) statusDisplay.textContent = 'Up to Date';
+            if (statusMessage) statusMessage.className = 'update-status-message success';
+            if (statusContent) statusContent.textContent = 'You are running version ' + ver + '. No update server configured.';
+            if (checkBtn) checkBtn.disabled = false;
+            return;
+        }
+
+        try {
+            var result = await window.electronAPI.checkForUpdates();
+            if (!result.success) {
+                if (statusDisplay) statusDisplay.textContent = 'Error';
+                if (statusMessage) statusMessage.className = 'update-status-message error';
+                if (statusContent) statusContent.textContent = result.error || 'Failed to check for updates.';
+                if (checkBtn) checkBtn.disabled = false;
+            }
+            // Further status comes via onUpdateStatus IPC event
+        } catch (e) {
+            if (statusDisplay) statusDisplay.textContent = 'Error';
+            if (statusMessage) statusMessage.className = 'update-status-message error';
+            if (statusContent) statusContent.textContent = 'Error: ' + e.message;
+            if (checkBtn) checkBtn.disabled = false;
+        }
+    };
+
+    function handleUpdateStatus(updateInfo) {
+        var statusDisplay  = document.getElementById('updateStatusDisplay');
+        var statusMessage  = document.getElementById('updateStatusMessage');
+        var statusContent  = document.getElementById('updateStatusContent');
+        var progressSection = document.getElementById('updateProgressSection');
+        var progressFill   = document.getElementById('updateProgressFill');
+        var progressText   = document.getElementById('updateProgressText');
+        var checkBtn       = document.getElementById('checkUpdateBtn');
+
+        if (!statusMessage) return;
+        statusMessage.style.display = 'block';
+
+        var map = {
+            'checking'      : ['Checking…',          'info',    false, updateInfo.message || 'Checking…'],
+            'available'     : ['Update Available!',   'success', false, 'New version ' + (updateInfo.version || '') + ' is available.'],
+            'not-available' : ['Up to Date',          'success', false, updateInfo.message || 'You are using the latest version.'],
+            'downloading'   : ['Downloading…',        'info',    true,  updateInfo.message || 'Downloading update…'],
+            'downloaded'    : ['Ready to Install',    'success', false, 'Downloaded — restart the app to install.'],
+            'error'         : ['Error',               'error',   false, updateInfo.message || 'An error occurred.']
+        };
+
+        var entry = map[updateInfo.status];
+        if (!entry) return;
+
+        if (statusDisplay) statusDisplay.textContent = entry[0];
+        statusMessage.className = 'update-status-message ' + entry[1];
+        if (statusContent) statusContent.textContent = entry[3];
+        if (progressSection) progressSection.style.display = entry[2] ? 'block' : 'none';
+        if (entry[2] && updateInfo.percent !== undefined) {
+            if (progressFill) progressFill.value = updateInfo.percent;
+            if (progressText) progressText.textContent = updateInfo.percent + '%';
+        }
+        if (updateInfo.status !== 'checking' && updateInfo.status !== 'downloading') {
+            if (checkBtn) checkBtn.disabled = false;
+        }
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    addAdminLog('Admin panel ready.', 'success');
+}());

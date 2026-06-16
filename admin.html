@@ -1,178 +1,538 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Stirling Engine - Admin Panel</title>
-    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-    <link rel="manifest" href="assets/site.webmanifest">
-    <link rel="stylesheet" href="styles.css">
-    <style>
-        .admin-window {
-            padding: 20px;
-            background: #f8f9fa;
-            min-height: 100vh;
-        }
-        
-        .admin-header {
-            background: linear-gradient(135deg, #6f42c1, #5a32a3);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .admin-header h1 {
-            margin: 0;
-            font-size: 1.8rem;
-        }
-        
-        .admin-header p {
-            margin: 10px 0 0 0;
-            opacity: 0.9;
-        }
-        
-        .debug-panel {
-            margin-top: 0;
-        }
-        
-        .debug-header {
-            background: #007bff;
-        }
-        
-        .admin-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            justify-content: center;
-        }
-        
-        .btn-admin-small {
-            padding: 8px 16px;
-            font-size: 0.9rem;
-        }
-        
-        .status-overview {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .status-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .status-card h4 {
-            margin: 0 0 10px 0;
-            color: #495057;
-        }
-        
-        .status-card .value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #007bff;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matrix Stirling Engine — Admin</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="assets/css/app.css">
 
-        /* Ensure tab content visibility is controlled by .active class */
-        .debug-tab-content { display: none; }
-        .debug-tab-content.active { display: block; }
-    </style>
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+
+  <style>
+    @font-face {
+      font-family: 'Azonix';
+      src: url('assets/fonts/Azonix.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    /* ── Tab content panels ── */
+    .tab-content               { display: none; }
+    .tab-content.active        { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+
+    /* Bootloader / Updates / Settings are scrollable; only Dashboard fills height silently */
+    #bootloaderTab.active,
+    #updatesTab.active,
+    #settingsTab.active        { overflow-y: auto; }
+
+    /* ── Tab button active state ── */
+    .tab-button.active {
+      border-bottom-color: oklch(var(--p)) !important;
+      color: oklch(var(--p));
+      font-weight: 600;
+    }
+
+    /* ── Log colours ── */
+    .log-timestamp { color: oklch(var(--bc)/0.40); }
+    .log-info      { color: oklch(var(--bc)/0.80); }
+    .log-success   { color: oklch(var(--su, 0.7 0.2 150)); }
+    .log-warning   { color: oklch(var(--wa, 0.8 0.18 80)); }
+    .log-error     { color: oklch(var(--er, 0.65 0.22 25)); }
+
+    /* ── Scrollable log container ── */
+    .log-scroll {
+      overflow-y: auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.73rem;
+      line-height: 1.6;
+    }
+
+    /* ── Log entry ── */
+    .log-entry { padding: 1px 0; }
+
+    /* ── Raw data entries ── */
+    .raw-data-entry { padding: 1px 0; border-bottom: 1px solid oklch(var(--b3)/0.25); }
+    .raw-data-hex   { color: oklch(var(--p)); }
+    .raw-data-ascii { color: oklch(var(--s, 0.7 0.2 200)); }
+
+    /* ── Bootloader log ── */
+    .bootloader-log-entry         { padding: 2px 0; font-family: 'Courier New', Courier, monospace; font-size: 0.73rem; color: oklch(var(--bc)/0.80); }
+    .bootloader-log-entry.success { color: oklch(var(--su, 0.7 0.2 150)); }
+    .bootloader-log-entry.error   { color: oklch(var(--er, 0.65 0.22 25)); }
+    .bootloader-log-entry.warning { color: oklch(var(--wa, 0.8 0.18 80)); }
+
+    /* ── Hex file path label ── */
+    .file-path-label          { font-family: 'Courier New', Courier, monospace; font-size: 0.73rem; color: oklch(var(--bc)/0.45); word-break: break-all; }
+    .file-path-label.has-file { color: oklch(var(--su, 0.7 0.2 150)); }
+
+    /* ── Update status messages ── */
+    .update-status-message         { border-radius: 0.5rem; padding: 0.75rem; }
+    .update-status-message.info    { background: oklch(var(--in, 0.7 0.18 230)/0.12); border-left: 3px solid oklch(var(--in, 0.7 0.18 230)); }
+    .update-status-message.success { background: oklch(var(--su, 0.7 0.2 150)/0.12); border-left: 3px solid oklch(var(--su, 0.7 0.2 150)); }
+    .update-status-message.error   { background: oklch(var(--er, 0.65 0.22 25)/0.12);  border-left: 3px solid oklch(var(--er, 0.65 0.22 25)); }
+  </style>
 </head>
-<body>
-    <div class="admin-window">
-        <div class="admin-header">
-            <h1>⚙️ Matrix Stirling Engine Admin Panel</h1>
-            <p>Real-time data monitoring and system diagnostics</p>
-        </div>
-        
-        <div class="admin-controls">
-            <button id="clearAllBtn" class="btn btn-admin-small">Clear All Data</button>
-            <button id="exportDataBtn" class="btn btn-admin-small">Export Data</button>
-            <button id="refreshBtn" class="btn btn-admin-small">Refresh</button>
-        </div>
-        
-        <div class="status-overview">
-            <div class="status-card">
-                <h4>System Status</h4>
-                <div id="adminSystemStatus" class="value">OFFLINE</div>
-            </div>
-            <div class="status-card">
-                <h4>Data Packets</h4>
-                <div id="adminPacketCount" class="value">0</div>
-            </div>
-            <div class="status-card">
-                <h4>Data Rate</h4>
-                <div id="adminDataRate" class="value">0 pps</div>
-            </div>
-            <div class="status-card">
-                <h4>Last Update</h4>
-                <div id="adminLastUpdate" class="value">Never</div>
-            </div>
-        </div>
-        
-        <!-- Debug Panel -->
-        <div class="debug-panel">
-            <div class="debug-header">
-                <h3>🔍 System Diagnostics</h3>
-                <button id="clearDebugBtn" class="btn btn-small">Clear</button>
-            </div>
-            
-            <div class="debug-tabs">
-                <button class="debug-tab active" data-tab="raw">Raw Data</button>
-                <button class="debug-tab" data-tab="parsed">Parsed Data</button>
-                <button class="debug-tab" data-tab="processed">Processed Data</button>
-                <button class="debug-tab" data-tab="connection">Connection</button>
-                <button class="debug-tab" data-tab="stats">Statistics</button>
-                <button class="debug-tab" data-tab="sent">Sent Data</button>
-            </div>
-            
-            <div class="debug-content">
-                <div id="rawDataTab" class="debug-tab-content active">
-                    <h4>Raw USB Data (Hex)</h4>
-                    <div id="rawDataDisplay" class="debug-display">No data received yet...</div>
-                </div>
-                
-                <div id="parsedDataTab" class="debug-tab-content">
-                    <h4>Parsed Stirling Engine Data</h4>
-                    <div id="parsedDataDisplay" class="debug-display">No parsed data yet...</div>
-                </div>
-                
-                <div id="processedDataTab" class="debug-tab-content">
-                    <h4>Processed Data Breakdown</h4>
-                    <div id="processedDataDisplay" class="debug-display">No processed data yet...</div>
-                </div>
-                
-                <div id="connectionTab" class="debug-tab-content">
-                    <h4>Connection Information</h4>
-                    <div id="connectionInfoDisplay" class="debug-display">No connection info yet...</div>
-                </div>
-                
-                <div id="statsTab" class="debug-tab-content">
-                    <h4>Data Statistics</h4>
-                    <div id="statsDisplay" class="debug-display">No statistics yet...</div>
-                </div>
-                
-                <div id="sentDataTab" class="debug-tab-content">
-                    <h4>Commands Sent from App</h4>
-                    <div id="sentDataDisplay" class="debug-display">No commands sent yet...</div>
-                </div>
-            </div>
-        </div>
+<body class="bg-base-100 text-base-content h-screen overflow-hidden flex flex-col">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       NAVBAR
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="bg-base-200 border-b border-base-300 shadow-sm flex-shrink-0 px-4 py-2 flex items-center w-full min-h-[52px]">
+
+    <!-- Left: logo + app name -->
+    <div class="flex-1 flex items-center gap-2.5 min-w-0">
+      <img id="admin-logo" src="assets/Matrix 2024 White_Thermodynamics.png" alt="Matrix Thermodynamics"
+           class="h-[26px] w-auto object-contain shrink-0">
+      <span class="text-[0.79rem] font-semibold text-base-content/60 whitespace-nowrap">Stirling Engine</span>
     </div>
 
-    <!-- Include Stirling data parser -->
-    <script src="stirling-data-parser.js"></script>
-    <!-- Include admin script -->
-    <script src="admin.js"></script>
+    <!-- Centre: title + status badge -->
+    <div class="flex flex-col items-center gap-0.5 flex-shrink-0 px-4">
+      <span class="font-bold text-base-content tracking-wider uppercase" style="font-family:'Azonix',sans-serif;font-size:1.5rem;letter-spacing:0.12em;">
+        STIRLING ENGINE
+      </span>
+      <div id="adminSystemStatus" class="badge badge-error badge-sm font-bold tracking-wider uppercase">
+        SYSTEM OFFLINE
+      </div>
+    </div>
+
+    <!-- Right: theme selector -->
+    <div class="flex-1 flex items-center justify-end gap-3">
+      <select id="adminThemeSelector" class="select select-bordered select-xs max-w-24">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select>
+    </div>
+
+  </div><!-- /navbar -->
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ADMIN TAB BAR
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="bg-base-200 border-b border-base-300 flex-shrink-0 px-2 py-1">
+    <div class="flex flex-wrap items-center gap-y-1">
+
+      <button id="adminBackBtn" class="btn btn-sm btn-primary gap-1 flex-shrink-0 mr-2">
+        ← Main App
+      </button>
+
+      <button class="tab-button btn btn-ghost btn-sm rounded-none border-b-2 border-primary active whitespace-nowrap"
+              onclick="switchAdminTab('dashboard', this)">
+        📊 Dashboard
+      </button>
+      <button class="tab-button btn btn-ghost btn-sm rounded-none border-b-2 border-transparent whitespace-nowrap"
+              onclick="switchAdminTab('bootloader', this)">
+        🔧 Bootloader
+      </button>
+      <button class="tab-button btn btn-ghost btn-sm rounded-none border-b-2 border-transparent whitespace-nowrap"
+              onclick="switchAdminTab('updates', this)">
+        🔄 Updates
+      </button>
+      <button class="tab-button btn btn-ghost btn-sm rounded-none border-b-2 border-transparent whitespace-nowrap"
+              onclick="switchAdminTab('settings', this)">
+        ⚙️ Settings
+      </button>
+
+    </div>
+  </div><!-- /tab bar -->
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TAB CONTENT WRAPPER — flex column, fills remaining height
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="flex-1 overflow-hidden flex flex-col">
+
+
+    <!-- ══════════════════ DASHBOARD TAB ══════════════════ -->
+    <div id="dashboardTab" class="tab-content active p-4 gap-4">
+
+      <!-- 2-column grid fills the whole height; each card stretches -->
+      <div class="grid grid-cols-2 gap-4 flex-1 min-h-0">
+
+        <!-- System Log -->
+        <div class="card bg-base-200 shadow flex flex-col min-h-0">
+          <div class="card-body p-3 gap-2 flex flex-col flex-1 min-h-0">
+            <div class="flex items-center justify-between flex-shrink-0">
+              <h3 class="font-semibold text-sm">📋 System Log</h3>
+              <div class="flex gap-1">
+                <button class="btn btn-xs btn-ghost" onclick="adminClearLog()">🗑 Clear</button>
+                <button class="btn btn-xs btn-ghost" onclick="adminExportLog()">💾 Export</button>
+              </div>
+            </div>
+            <div id="adminLogContainer"
+                 class="log-scroll bg-base-300 rounded p-2 flex-1 min-h-0 overflow-y-auto">
+              <div class="log-entry">
+                <span class="log-timestamp">[Ready]</span>
+                <span class="log-info"> Admin panel initialised</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw Data Stream -->
+        <div class="card bg-base-200 shadow flex flex-col min-h-0">
+          <div class="card-body p-3 gap-2 flex flex-col flex-1 min-h-0">
+            <div class="flex items-center justify-between flex-shrink-0">
+              <h3 class="font-semibold text-sm">📡 Raw Data Stream</h3>
+              <div class="flex gap-1">
+                <button class="btn btn-xs btn-ghost" onclick="clearRawData()">🗑 Clear</button>
+                <button class="btn btn-xs btn-ghost" onclick="exportRawData()">💾 Export</button>
+              </div>
+            </div>
+            <div id="rawDataContainer"
+                 class="log-scroll bg-base-300 rounded p-2 flex-1 min-h-0 overflow-y-auto">
+              <div class="raw-data-entry">
+                <span class="log-timestamp">[Waiting for serial data…]</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /grid -->
+    </div><!-- /dashboardTab -->
+
+
+    <!-- ══════════════════ BOOTLOADER TAB ══════════════════ -->
+    <div id="bootloaderTab" class="tab-content p-4 space-y-4">
+
+      <!-- Top Stats Bar -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+        <div class="stat bg-base-200 shadow-lg rounded-lg">
+          <div class="stat-title text-base-content">Connection</div>
+          <div class="stat-value text-xl flex items-center gap-2">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-warning"></span>
+            </span>
+            <span id="blStatConnection" class="font-bold text-warning text-lg">STANDBY</span>
+          </div>
+          <div class="stat-desc text-base-content">USB serial</div>
+        </div>
+
+        <div class="stat bg-base-200 shadow-lg rounded-lg">
+          <div class="stat-title text-base-content">USB Device</div>
+          <div class="stat-value text-xl font-mono text-base-content">12BF:010B</div>
+          <div class="stat-desc text-base-content">VID : PID</div>
+        </div>
+
+        <div class="stat bg-base-200 shadow-lg rounded-lg">
+          <div class="stat-title text-base-content">Hex File</div>
+          <div class="stat-value text-xl text-base-content" id="blStatHexFile">None</div>
+          <div class="stat-desc text-base-content" id="blStatHexDesc">No file selected</div>
+        </div>
+
+        <div class="stat bg-base-200 shadow-lg rounded-lg">
+          <div class="stat-title text-base-content">Operation</div>
+          <div class="stat-value text-xl text-base-content font-mono" id="blStatOperation">IDLE</div>
+          <div class="stat-desc text-base-content" id="blStatOperationDesc">Ready</div>
+        </div>
+
+      </div><!-- /top stats -->
+
+      <!-- Main 3-column layout -->
+      <div class="grid gap-4 lg:grid-cols-3">
+
+        <!-- Left: 2 cols — Actions + Log -->
+        <div class="lg:col-span-2 space-y-4">
+
+          <!-- Bootloader Actions card -->
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-base-content">
+                <svg class="w-5 h-5 text-base-content" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Bootloader Actions
+              </h2>
+
+              <!-- Primary action row -->
+              <div class="grid grid-cols-2 gap-3 mt-2">
+                <button class="btn btn-primary btn-sm font-mono" id="loadHexBtn"
+                        onclick="loadHexFile()" disabled>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                  </svg>
+                  Load Hex File
+                </button>
+                <button class="btn btn-success btn-sm font-mono" id="runAppBtn"
+                        onclick="runApplication()" disabled>
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/>
+                  </svg>
+                  Run Application
+                </button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <button class="btn btn-outline btn-sm font-mono" id="connectBtn"
+                        onclick="connectBootloader()" disabled>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                  </svg>
+                  Connect
+                </button>
+                <button class="btn btn-warning btn-sm font-mono" id="triggerBootloaderBtn"
+                        onclick="triggerBootloader()">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Trigger Bootloader
+                </button>
+              </div>
+
+              <div class="divider my-1"></div>
+
+              <!-- Destructive action -->
+              <button class="btn btn-error btn-sm font-mono w-full" id="eraseProgVerifyBtn"
+                      onclick="eraseProgramVerify()" disabled>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                Erase — Program — Verify
+              </button>
+
+              <!-- Firmware progress -->
+              <div id="firmwareProgressSection" class="space-y-2 mt-2" style="display:none;">
+                <div class="flex items-center justify-between text-xs font-bold font-mono">
+                  <span id="firmwareProgressLabel">Initialising…</span>
+                  <span id="firmwareProgressText">0%</span>
+                </div>
+                <progress class="progress progress-success w-full"
+                          id="firmwareProgressFill" value="0" max="100"></progress>
+              </div>
+
+              <!-- Hex file status -->
+              <div class="bg-base-300 rounded p-2 border-l-4 border-primary mt-1">
+                <span class="file-path-label" id="hexFilePathLabel">No hex file loaded</span>
+              </div>
+
+            </div>
+          </div><!-- /actions card -->
+
+          <!-- Bootloader log card -->
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <div class="flex items-center justify-between">
+                <h2 class="card-title text-base-content text-sm">
+                  <svg class="w-4 h-4 text-base-content" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  Bootloader Log
+                </h2>
+                <button class="btn btn-ghost btn-xs" onclick="document.getElementById('bootloaderLog').innerHTML=''">Clear</button>
+              </div>
+              <div class="log-scroll bg-base-300 rounded p-2 h-40 overflow-y-auto mt-1">
+                <div id="bootloaderLog"></div>
+              </div>
+            </div>
+          </div><!-- /log card -->
+
+        </div><!-- /left cols -->
+
+        <!-- Right: 1 col — Settings + Info -->
+        <div class="space-y-4">
+
+          <!-- Communication Settings card -->
+          <div class="card bg-base-200 shadow-xl border border-base-300">
+            <div class="card-body">
+              <h2 class="card-title text-base-content">
+                <svg class="w-5 h-5 text-base-content" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                </svg>
+                Communication Settings
+              </h2>
+
+              <div class="divider mt-0 mb-1"></div>
+
+              <h3 class="font-semibold text-sm text-base-content mb-2">USB</h3>
+
+              <div class="form-control mb-2">
+                <label class="label py-1">
+                  <span class="label-text font-bold text-base-content">VID</span>
+                </label>
+                <input type="text" id="usbVidInput" value="0x12BF" placeholder="0x12BF"
+                       class="input input-bordered input-sm font-mono w-full">
+              </div>
+
+              <div class="form-control mb-3">
+                <label class="label py-1">
+                  <span class="label-text font-bold text-base-content">PID</span>
+                </label>
+                <input type="text" id="usbPidInput" value="0x00A1" placeholder="0x00A1"
+                       class="input input-bordered input-sm font-mono w-full">
+              </div>
+
+              <label class="flex items-center gap-2 cursor-pointer mb-3">
+                <input type="checkbox" id="usbEnableCheck" checked
+                       class="toggle toggle-success toggle-sm">
+                <span class="label-text font-mono font-bold text-success text-xs">ENABLED</span>
+              </label>
+
+            </div>
+          </div><!-- /comm settings card -->
+
+          <!-- Device Info card -->
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-sm text-base-content">Device Info</h2>
+              <div class="space-y-2 text-sm font-mono">
+                <div class="flex justify-between bg-base-300 rounded px-2 py-1">
+                  <span class="text-base-content/60 text-xs">MCU</span>
+                  <span class="text-base-content text-xs">STM32</span>
+                </div>
+                <div class="flex justify-between bg-base-300 rounded px-2 py-1">
+                  <span class="text-base-content/60 text-xs">VID</span>
+                  <span class="text-base-content text-xs">0x12BF</span>
+                </div>
+                <div class="flex justify-between bg-base-300 rounded px-2 py-1">
+                  <span class="text-base-content/60 text-xs">PID</span>
+                  <span class="text-base-content text-xs">0x010B</span>
+                </div>
+                <div class="flex justify-between bg-base-300 rounded px-2 py-1">
+                  <span class="text-base-content/60 text-xs">Baud</span>
+                  <span class="text-base-content text-xs">115200</span>
+                </div>
+              </div>
+            </div>
+          </div><!-- /device info card -->
+
+          <!-- Quick Guide card -->
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-sm text-base-content">Quick Guide</h2>
+              <ol class="text-xs text-base-content/70 space-y-1 list-decimal list-inside leading-relaxed">
+                <li>Click <span class="font-bold text-warning">Trigger Bootloader</span></li>
+                <li>Wait for device to enumerate</li>
+                <li>Click <span class="font-bold text-base-content">Connect</span></li>
+                <li>Click <span class="font-bold text-primary">Load Hex File</span></li>
+                <li>Click <span class="font-bold text-error">Erase — Program — Verify</span></li>
+                <li>Click <span class="font-bold text-success">Run Application</span></li>
+              </ol>
+            </div>
+          </div><!-- /guide card -->
+
+        </div><!-- /right col -->
+
+      </div><!-- /3-col grid -->
+
+    </div><!-- /bootloaderTab -->
+
+
+    <!-- ══════════════════ UPDATES TAB ══════════════════ -->
+    <div id="updatesTab" class="tab-content p-4 space-y-4">
+
+      <div class="card bg-base-200 shadow max-w-lg">
+        <div class="card-body gap-4">
+          <h2 class="card-title text-base border-b border-base-300 pb-3">🔄 Check for Updates</h2>
+
+          <div class="bg-base-300 rounded p-3 border-l-4 border-success space-y-2">
+            <div class="flex justify-between text-sm">
+              <strong>Current Version:</strong>
+              <span id="currentVersionDisplay" class="font-mono">Loading…</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <strong>Status:</strong>
+              <span id="updateStatusDisplay" class="opacity-70">Ready to check</span>
+            </div>
+          </div>
+
+          <div id="updateStatusMessage" style="display:none;">
+            <div class="text-sm leading-relaxed" id="updateStatusContent"></div>
+          </div>
+
+          <div id="updateProgressSection" style="display:none;" class="space-y-1">
+            <progress class="progress progress-primary w-full"
+                      id="updateProgressFill" value="0" max="100"></progress>
+            <span class="text-xs font-bold text-center block" id="updateProgressText">0%</span>
+          </div>
+
+          <button class="btn btn-primary btn-sm w-full" id="checkUpdateBtn"
+                  onclick="checkForUpdates()">🔄 Check for Updates</button>
+        </div>
+      </div>
+
+    </div><!-- /updatesTab -->
+
+
+    <!-- ══════════════════ SETTINGS TAB ══════════════════ -->
+    <div id="settingsTab" class="tab-content p-4 space-y-4">
+
+      <div class="flex flex-col gap-4 max-w-sm">
+
+        <!-- Temperature unit -->
+        <div class="card bg-base-200 shadow">
+          <div class="card-body gap-4">
+            <h2 class="card-title text-base border-b border-base-300 pb-3">🌡️ Temperature Unit</h2>
+            <p class="text-xs text-base-content/60">
+              Select the unit used for all temperature displays. The setting is saved and applied
+              immediately to the main app readings.
+            </p>
+            <div class="flex flex-col gap-3">
+              <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-base-300 hover:bg-base-100 transition-colors">
+                <input type="radio" name="tempUnit" value="C" class="radio radio-primary"
+                       onchange="setTemperatureUnit(this.value)">
+                <div>
+                  <div class="font-semibold text-sm">Celsius (°C)</div>
+                  <div class="text-xs opacity-60">Heater range: 20 °C – 70 °C</div>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-base-300 hover:bg-base-100 transition-colors">
+                <input type="radio" name="tempUnit" value="F" class="radio radio-primary"
+                       onchange="setTemperatureUnit(this.value)">
+                <div>
+                  <div class="font-semibold text-sm">Fahrenheit (°F)</div>
+                  <div class="text-xs opacity-60">Heater range: 68 °F – 158 °F</div>
+                </div>
+              </label>
+            </div>
+            <p class="text-xs text-base-content/50">
+              Only the live temperature reading is converted — heater setpoint controls remain in °C
+              (hardware requirement).
+            </p>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="card bg-base-200 shadow">
+          <div class="card-body p-4 gap-2">
+            <h3 class="card-title text-sm">About</h3>
+            <div style="font-size:0.82rem;color:oklch(var(--bc)/0.7);line-height:1.7;">
+              <div><span style="color:oklch(var(--bc)/0.5);">App:</span> Matrix Stirling Engine Monitor</div>
+              <div><span style="color:oklch(var(--bc)/0.5);">Version:</span> <span id="aboutVersion">—</span></div>
+              <div><span style="color:oklch(var(--bc)/0.5);">Hardware VID:</span> 12BF &nbsp;|&nbsp; PID: 010B</div>
+              <div><span style="color:oklch(var(--bc)/0.5);">Baud rate:</span> 115200</div>
+              <div><span style="color:oklch(var(--bc)/0.5);">Protocol:</span> PV packet (7 B) + RT packet (8 B)</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /settingsTab -->
+
+
+  </div><!-- /tab content wrapper -->
+
+  <script src="stirling-data-parser.js"></script>
+  <script src="admin.js"></script>
+
 </body>
 </html>
-

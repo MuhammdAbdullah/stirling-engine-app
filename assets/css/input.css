@@ -1,0 +1,133 @@
+/* ============================================================
+   css/input.css — Tailwind v4 + DaisyUI v5 source
+   Build: npm run build-css
+   Output: css/app.css (committed, loaded by HTML)
+   ============================================================ */
+
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* ── DaisyUI v4 channel-variable shims ───────────────────────
+   Curriculum section and some controls use oklch(var(--bc)/0.8)
+   syntax (DaisyUI v4 channel vars). DaisyUI v5 uses full-color
+   vars (--color-base-content). These shims expose channel-only
+   aliases so those inline styles keep working.
+   ─────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --b1:  25.33% 0.016 252.42;
+  --b2:  23.26% 0.014 253.1;
+  --b3:  21.15% 0.012 254.09;
+  --bc:  97.807% 0.029 256.847;
+  --p:   58% 0.233 277.117;
+  --pc:  96% 0.018 272.314;
+  --s:   65% 0.241 354.308;
+  --sc:  94% 0.028 342.258;
+  --a:   77% 0.152 181.912;
+  --ac:  38% 0.063 188.416;
+  --n:   14% 0.005 285.823;
+  --nc:  92% 0.004 286.32;
+  --in:  74% 0.16 232.661;
+  --inc: 29% 0.066 243.157;
+  --su:  76% 0.177 163.223;
+  --suc: 37% 0.077 168.94;
+  --wa:  82% 0.189 84.429;
+  --wac: 41% 0.112 45.904;
+  --er:  71% 0.194 13.428;
+  --erc: 27% 0.105 12.094;
+}
+
+[data-theme="light"] {
+  --b1:  100% 0 0;
+  --b2:  98% 0 0;
+  --b3:  95% 0 0;
+  --bc:  21% 0.006 285.885;
+  --p:   45% 0.24 277.023;
+  --pc:  93% 0.034 272.788;
+  --s:   65% 0.241 354.308;
+  --sc:  94% 0.028 342.258;
+  --a:   77% 0.152 181.912;
+  --ac:  38% 0.063 188.416;
+  --n:   14% 0.005 285.823;
+  --nc:  92% 0.004 286.32;
+  --in:  74% 0.16 232.661;
+  --inc: 29% 0.066 243.157;
+  --su:  76% 0.177 163.223;
+  --suc: 37% 0.077 168.94;
+  --wa:  82% 0.189 84.429;
+  --wac: 41% 0.112 45.904;
+  --er:  71% 0.194 13.428;
+  --erc: 27% 0.105 12.094;
+}
+
+/* ── Chart canvas: fills containers ─────────────────────── */
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Modal toggled by renderer.js via classList.add('show') ─ */
+.password-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.password-modal.show { display: flex; }
+
+/* ── CSV button states (toggled by renderer.js) ─────────── */
+.csv-idle {
+  background-color: transparent;
+  border-color: oklch(var(--bc) / 0.28);
+  color: oklch(var(--bc));
+}
+
+.csv-saving {
+  background-color: oklch(var(--su));
+  border-color: oklch(var(--su));
+  color: oklch(var(--suc));
+  animation: csv-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes csv-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.68; }
+}
+
+/* ── Active button state (heater ON, sweep running) ─────── */
+.btn.active {
+  background-color: oklch(var(--su));
+  border-color: oklch(var(--su));
+  color: oklch(var(--suc));
+}
+
+/* ── Admin panel debug display (monospace log area) ─────── */
+.debug-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.73rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: oklch(var(--bc) / 0.82);
+}
+
+/* ── Admin tab content panels ───────────────────────────── */
+.debug-tab-content {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  padding: 14px 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.debug-tab-content.active { display: flex; }
+
+/* ── Admin nav active state ─────────────────────────────── */
+.debug-tab.active {
+  background: oklch(var(--p) / 0.14) !important;
+  color: oklch(var(--p)) !important;
+  font-weight: 600;
+}

@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onSentCommand: (callback) => {
         ipcRenderer.on('sent-command', callback);
     },
+    onNavigateToAdmin: (callback) => {
+        ipcRenderer.on('navigate-to-admin', callback);
+    },
     // Heater control
     setHeater: (value) => ipcRenderer.invoke('set-heater', value),
     setHeaterMode: (mode) => ipcRenderer.invoke('set-heater-mode', mode),
@@ -38,6 +41,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendZeroCalibration: () => ipcRenderer.invoke('send-zero-calibration'),
     // Calibration done - sends data with label N and value 1
     sendCalibrationDone: () => ipcRenderer.invoke('send-calibration-done'),
+    // Bootloader trigger ':T1;' — sent to the connected Stirling Engine to reboot into bootloader mode
+    sendBootloader: (value) => ipcRenderer.invoke('send-bootloader', value),
+    // Check if bootloader USB HID device is present without connecting
+    checkBootloaderDevice: (vid, pid) => ipcRenderer.invoke('check-bootloader-device', vid, pid),
+    // Connect to the bootloader device (re-enumerated as USB HID VID:12BF PID:00A1) — user-initiated
+    connectToBootloaderUSB: (vid, pid) => ipcRenderer.invoke('connect-to-bootloader-usb', vid, pid),
+    // Disconnect from bootloader
+    disconnectFromPort: () => ipcRenderer.invoke('disconnect-from-port'),
+    // Bootloader operations
+    bootloaderReadInfo: () => ipcRenderer.invoke('bootloader-read-info'),
+    bootloaderEraseFlash: () => ipcRenderer.invoke('bootloader-erase-flash'),
+    bootloaderProgramFlash: () => ipcRenderer.invoke('bootloader-program-flash'),
+    bootloaderReadCRC: () => ipcRenderer.invoke('bootloader-read-crc'),
+    bootloaderJumpToApp: () => ipcRenderer.invoke('bootloader-jump-to-app'),
+    // Load Intel HEX file for flashing
+    loadHexFile: (filePath) => ipcRenderer.invoke('load-hex-file', filePath),
+    // Show file open dialog
+    showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
+    // Bootloader progress updates
+    onBootloaderProgress: (callback) => {
+        ipcRenderer.on('bootloader-progress', (event, data) => callback(data));
+    },
     getConnectionStatus: () => ipcRenderer.invoke('get-connection-status'),
 
     // CSV saving

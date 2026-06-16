@@ -5,6 +5,8 @@
   "homepage": "https://github.com/MuhammdAbdullah/stirling-engine-app",
   "main": "main.js",
   "scripts": {
+    "build-css": "tailwindcss -i assets/css/input.css -o assets/css/app.css --minify",
+    "watch-css": "tailwindcss -i assets/css/input.css -o assets/css/app.css --watch",
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
@@ -32,11 +34,15 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.1",
+    "daisyui": "^5.5.23",
     "electron": "^39.2.7",
-    "electron-builder": "^24.6.4"
+    "electron-builder": "^26.15.3",
+    "tailwindcss": "^4.3.1"
   },
   "dependencies": {
     "chart.js": "^4.4.0",
+    "node-hid": "^3.3.0",
     "serialport": "^12.0.0"
   },
   "build": {
@@ -47,14 +53,14 @@
     },
     "files": [
       "**/*",
-      "!node_modules/chart.js/dist/chart.min.js",
-      "!dist/**/*",
-      "lib/**/*",
+      "!assets/css/input.css",
+      "!node_modules/**/*",
       "node_modules/chart.js/dist/chart.umd.js",
       "data-worker.js",
       "stirling-data-parser.js",
       "node_modules/serialport/**/*",
-      "node_modules/@serialport/**/*"
+      "node_modules/@serialport/**/*",
+      "node_modules/node-hid/**/*"
     ],
     "win": {
       "target": "nsis"

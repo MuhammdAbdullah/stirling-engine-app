@@ -56,9 +56,7 @@ function initializeUI() {
     const heaterSlider = document.getElementById('heaterSlider');
     const heaterValue = document.getElementById('heaterValue');
     const heaterToggle = document.getElementById('heaterToggle');
-    const heaterTip = document.getElementById('heaterTip');
     const auxSlider = document.getElementById('auxSlider');
-    const auxTip = document.getElementById('auxTip');
     const auxValue = document.getElementById('auxValue');
     const sweepStepEl = document.getElementById('sweepStep');
     const sweepIntervalEl = document.getElementById('sweepInterval');
@@ -84,6 +82,7 @@ function initializeUI() {
     const volumeTimeContainer = document.getElementById('volumeTimeContainer');
     const tempRpmTimeContainer = document.getElementById('tempRpmTimeContainer');
     const timeSeriesModeSelect = document.getElementById('timeSeriesMode');
+    const pvPointsSelect = document.getElementById('pvPointsSelect');
 
     // System status elements
     const systemStatusBanner = document.getElementById('systemStatusBanner');
@@ -138,6 +137,7 @@ function initializeUI() {
     let volumeChart = null;
     let timeSeriesChart = null;
     let pvPoints = [];
+    let pvMaxPoints = 250;
 
     // Chart update throttling for better performance
     let chartUpdatePending = false;
@@ -278,13 +278,9 @@ function initializeUI() {
         // Set slider to 20 when app opens
         heaterSlider.value = 20;
         heaterValue.value = 20;
-        updateSliderTip();
-        updateHeaterSliderFill(20);
         let sliderDebounce = null;
         heaterSlider.addEventListener('input', function () {
             heaterValue.value = heaterSlider.value;
-            updateSliderTip();
-            updateHeaterSliderFill(heaterSlider.value);
             if (sliderDebounce) clearTimeout(sliderDebounce);
             sliderDebounce = setTimeout(function () {
                 sendHeaterSetpoint();
@@ -299,35 +295,19 @@ function initializeUI() {
             val = Math.max(20, Math.min(70, val));
             heaterValue.value = val;
             heaterSlider.value = val;
-            updateSliderTip();
-            updateHeaterSliderFill(val);
             if (sliderDebounce) clearTimeout(sliderDebounce);
             sliderDebounce = setTimeout(function () {
                 sendHeaterSetpoint();
             }, 150);
         }
-        
+
         // Allow user to type in the value input - only update on blur or Enter key
         heaterValue.addEventListener('blur', updateHeaterFromInput);
         heaterValue.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 updateHeaterFromInput();
-                heaterValue.blur(); // Remove focus after Enter
-            }
-        });
-        // Show tip on hover with cursor position
-        heaterSlider.addEventListener('mousemove', function (e) {
-            var row = heaterSlider.closest('.slider-row');
-            if (row) {
-                row.classList.add('active');
-            }
-            updateSliderTipFromEvent(e);
-        });
-        heaterSlider.addEventListener('mouseleave', function (e) {
-            var row = heaterSlider.closest('.slider-row');
-            if (row) {
-                row.classList.remove('active');
+                heaterValue.blur();
             }
         });
     }
@@ -375,8 +355,6 @@ function initializeUI() {
         val = Math.max(20, Math.min(70, val));
         heaterSlider.value = String(val);
         heaterValue.value = val;
-        updateSliderTip();
-        updateHeaterSliderFill(val);
     }
 
     function applyHeaterHardwareValue(rawValue) {
@@ -394,69 +372,14 @@ function initializeUI() {
         }
     }
 
-    function updateSliderTip() {
-        if (!heaterSlider || !heaterTip) return;
-        var min = parseInt(heaterSlider.min || 20);
-        var max = parseInt(heaterSlider.max || 70);
-        var val = parseInt(heaterSlider.value || 20);
-        var percent = (val - min) / (max - min);
-        var wrapper = heaterSlider.closest('.heater-slider-wrapper');
-        if (wrapper) {
-            var wrapperRect = wrapper.getBoundingClientRect();
-            var x = percent * wrapperRect.width;
-            heaterTip.style.left = x + 'px';
-        } else {
-            // Fallback to old method
-            var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
-            var rowRect = row.getBoundingClientRect();
-            var sliderRect = heaterSlider.getBoundingClientRect();
-            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-            heaterTip.style.left = x + 'px';
-        }
-        heaterTip.textContent = String(val);
-    }
-
-    function updateSliderTipFromEvent(e) {
-        if (!heaterSlider || !heaterTip) return;
-        var wrapper = heaterSlider.closest('.heater-slider-wrapper');
-        if (wrapper) {
-            var wrapperRect = wrapper.getBoundingClientRect();
-            var mouseX = e.clientX - wrapperRect.left;
-            var percent = Math.max(0, Math.min(1, mouseX / wrapperRect.width));
-            var min = parseInt(heaterSlider.min || 20);
-            var max = parseInt(heaterSlider.max || 70);
-            var val = Math.round(min + percent * (max - min));
-            var x = percent * wrapperRect.width;
-            heaterTip.style.left = x + 'px';
-            heaterTip.textContent = String(val);
-        } else {
-            // Fallback to old method
-            var row = heaterSlider.closest('.slider-row') || heaterSlider.parentElement;
-            var rowRect = row.getBoundingClientRect();
-            var sliderRect = heaterSlider.getBoundingClientRect();
-            var mouseX = e.clientX - sliderRect.left;
-            var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
-            var min = parseInt(heaterSlider.min || 20);
-            var max = parseInt(heaterSlider.max || 70);
-            var val = Math.round(min + percent * (max - min));
-            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-            heaterTip.style.left = x + 'px';
-            heaterTip.textContent = String(val);
-        }
-    }
-
     // Aux slider events
     if (auxSlider && auxValue) {
         // Set slider to 0 when app opens
         auxSlider.value = 0;
         auxValue.value = 0;
-        updateAuxTip();
-        updateAuxSliderFill(0);
         let auxDebounce = null;
         auxSlider.addEventListener('input', function () {
             auxValue.value = auxSlider.value;
-            updateAuxTip();
-            updateAuxSliderFill(auxSlider.value);
             if (auxDebounce) clearTimeout(auxDebounce);
             auxDebounce = setTimeout(function () {
                 sendAuxCommand();
@@ -469,8 +392,6 @@ function initializeUI() {
             val = Math.max(0, Math.min(100, val));
             auxValue.value = val;
             auxSlider.value = val;
-            updateAuxTip();
-            updateAuxSliderFill(val);
             if (auxDebounce) clearTimeout(auxDebounce);
             auxDebounce = setTimeout(function () {
                 sendAuxCommand();
@@ -484,112 +405,11 @@ function initializeUI() {
             val = Math.max(0, Math.min(100, val));
             auxValue.value = val;
             auxSlider.value = val;
-            updateAuxTip();
-            updateAuxSliderFill(val);
-        });
-        // Show tip on hover with cursor position
-        auxSlider.addEventListener('mousemove', function (e) {
-            var row = auxSlider.closest('.slider-row');
-            if (row) {
-                row.classList.add('active');
-            }
-            updateAuxTipFromEvent(e);
-        });
-        auxSlider.addEventListener('mouseleave', function (e) {
-            var row = auxSlider.closest('.slider-row');
-            if (row) {
-                row.classList.remove('active');
-            }
         });
     }
 
-    function updateAuxTip() {
-        if (!auxSlider || !auxTip) return;
-        var min = parseInt(auxSlider.min || 0);
-        var max = parseInt(auxSlider.max || 100);
-        var val = parseInt(auxSlider.value || 0);
-        var percent = (val - min) / (max - min);
-        var wrapper = auxSlider.closest('.slider-wrapper');
-        if (wrapper) {
-            var wrapperRect = wrapper.getBoundingClientRect();
-            var x = percent * wrapperRect.width;
-            auxTip.style.left = x + 'px';
-        } else {
-            // Fallback to old method
-            var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
-            var rowRect = row.getBoundingClientRect();
-            var sliderRect = auxSlider.getBoundingClientRect();
-            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-            auxTip.style.left = x + 'px';
-        }
-        auxTip.textContent = String(val);
-    }
-
-    function updateHeaterSliderFill(value) {
-        var heaterFill = document.getElementById('heaterSliderFill');
-        if (!heaterSlider || !heaterFill) return;
-        var min = parseInt(heaterSlider.min || 20);
-        var max = parseInt(heaterSlider.max || 70);
-        var val = parseInt(value || 20);
-
-        // Calculate percentage (0 to 1)
-        var percent = (val - min) / (max - min);
-        // Clamp between 0 and 1
-        percent = Math.max(0, Math.min(1, percent));
-
-        var percentageStr = (percent * 100) + '%';
-        heaterFill.style.setProperty('--fill-percent', percentageStr);
-    }
-
-    function updateAuxSliderFill(value) {
-        var auxFill = document.getElementById('auxSliderFill');
-        if (!auxSlider || !auxFill) return;
-        var min = parseInt(auxSlider.min || 0);
-        var max = parseInt(auxSlider.max || 100);
-        var val = parseInt(value || 0);
-
-        // Calculate percentage (0 to 1)
-        var percent = (val - min) / (max - min);
-        // Clamp between 0 and 1
-        percent = Math.max(0, Math.min(1, percent));
-
-        var percentageStr = (percent * 100) + '%';
-        auxFill.style.setProperty('--fill-percent', percentageStr);
-    }
-
-    function updateAuxTipFromEvent(e) {
-        if (!auxSlider || !auxTip) return;
-        var wrapper = auxSlider.closest('.slider-wrapper');
-        if (wrapper) {
-            var wrapperRect = wrapper.getBoundingClientRect();
-            var mouseX = e.clientX - wrapperRect.left;
-            var percent = Math.max(0, Math.min(1, mouseX / wrapperRect.width));
-            var min = parseInt(auxSlider.min || 0);
-            var max = parseInt(auxSlider.max || 100);
-            var val = Math.round(min + percent * (max - min));
-            var x = percent * wrapperRect.width;
-            auxTip.style.left = x + 'px';
-            auxTip.textContent = String(val);
-        } else {
-            // Fallback to old method
-            var row = auxSlider.closest('.slider-row') || auxSlider.parentElement;
-            var rowRect = row.getBoundingClientRect();
-            var sliderRect = auxSlider.getBoundingClientRect();
-            var mouseX = e.clientX - sliderRect.left;
-            var percent = Math.max(0, Math.min(1, mouseX / sliderRect.width));
-            var min = parseInt(auxSlider.min || 0);
-            var max = parseInt(auxSlider.max || 100);
-            var val = Math.round(min + percent * (max - min));
-            var x = (sliderRect.left - rowRect.left) + percent * sliderRect.width;
-            auxTip.style.left = x + 'px';
-            auxTip.textContent = String(val);
-        }
-    }
-
-    // Keep tips positioned on resize and resize charts
+    // Resize charts on window resize
     window.addEventListener('resize', function () {
-        updateSliderTip();
-        updateAuxTip();
         // Resize charts to ensure proper display
         if (pvChart) {
             pvChart.resize();
@@ -622,8 +442,6 @@ function initializeUI() {
         val = Math.max(0, Math.min(100, val));
         auxSlider.value = String(val);
         auxValue.value = val;
-        updateAuxTip();
-        updateAuxSliderFill(val);
     }
 
     // Sweep logic
@@ -649,8 +467,6 @@ function initializeUI() {
             if (val <= 0) { val = 0; sweepDirection = 1; }
             auxSlider.value = String(val);
             auxValue.value = val;
-            updateAuxTip();
-            updateAuxSliderFill(val);
             sendAuxCommand();
         }, interval);
     }
@@ -724,7 +540,7 @@ function initializeUI() {
         }
         csvFilePath = dialogResult.filePath;
         // First column is now HeaterTimeSeconds (time since last heater ON, in seconds)
-        csvRows = ['HeaterTimeSeconds,Pressure,Volume_mm3,Temperature,RPM'];
+        csvRows = ['HeaterTimeSeconds,Pressure,Volume_mm3,Temperature,RPM,Power,LoadPercentage'];
         lastCsvTemperature = '';
         lastCsvRpm = '';
         lastCsvPressure = '';
@@ -1148,12 +964,14 @@ function initializeUI() {
         // Format values for CSV
         var pressureText = (pressureValue === '' || pressureValue === null || pressureValue === undefined) ? '' : String(pressureValue);
         var volumeText = (volumeValue === '' || volumeValue === null || volumeValue === undefined) ? '' : Number(volumeValue).toFixed(2);
-        var temperatureText = (temperatureValue === '' || temperatureValue === null || temperatureValue === undefined) ? '' : String(temperatureValue);
+        var temperatureText = (temperatureValue === '' || temperatureValue === null || temperatureValue === undefined) ? '' : Number(temperatureValue).toFixed(1);
         var rpmText = (rpmValue === '' || rpmValue === null || rpmValue === undefined) ? '' : String(rpmValue);
+        var powerText = (lastValidPower !== null && lastValidPower > 0) ? lastValidPower.toFixed(2) : '';
+        var loadText = (auxSlider && auxSlider.value !== undefined && auxSlider.value !== null) ? String(auxSlider.value) : '';
 
         // Add to CSV rows
         // First column: heater time in seconds since last heater ON
-        csvRows.push(heaterTimeText + ',' + pressureText + ',' + volumeText + ',' + temperatureText + ',' + rpmText);
+        csvRows.push(heaterTimeText + ',' + pressureText + ',' + volumeText + ',' + temperatureText + ',' + rpmText + ',' + powerText + ',' + loadText);
     }
 
     // Theme selector
@@ -1327,6 +1145,20 @@ function initializeUI() {
         });
     }
 
+    // PV points selector
+    if (pvPointsSelect) {
+        pvPointsSelect.addEventListener('change', function () {
+            pvMaxPoints = parseInt(pvPointsSelect.value, 10);
+            if (pvPoints.length > pvMaxPoints) {
+                pvPoints = pvPoints.slice(pvPoints.length - pvMaxPoints);
+            }
+            if (pvChart && pvChart.data && pvChart.data.datasets && pvChart.data.datasets[0]) {
+                pvChart.data.datasets[0].data = pvPoints;
+                pvChart.update('none');
+            }
+        });
+    }
+
     // Function to create and configure the chart
     function initializeChart() {
         const ctx = chartCanvas.getContext('2d');
@@ -1452,8 +1284,7 @@ function initializeUI() {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 1,
+                maintainAspectRatio: false,
                 layout: {
                     padding: {
                         left: 20,
@@ -1464,6 +1295,8 @@ function initializeUI() {
                 },
                 scales: {
                     x: {
+                        min: 46170 / 1e9,
+                        max: 46670 / 1e9,
                         title: {
                             display: true,
                             text: 'Volume (mm³)',
@@ -1481,8 +1314,7 @@ function initializeUI() {
                             autoSkip: true,
                             maxTicksLimit: 8
                         },
-                        position: 'bottom',
-                        grace: '5%'
+                        position: 'bottom'
                     },
                     y: {
                         title: {
@@ -1697,15 +1529,18 @@ function initializeUI() {
                     x: {
                         title: {
                             display: true,
-                            text: 'Time (s)',
+                            text: 'Time',
                             padding: { top: 5, bottom: 5 }
                         },
                         grid: {
                             color: 'rgba(0,0,0,0.1)'
                         },
                         ticks: {
-                            padding: 8,
-                            autoSkip: true
+                            padding: 6,
+                            autoSkip: true,
+                            maxTicksLimit: 5,
+                            maxRotation: 45,
+                            minRotation: 30
                         },
                         grace: '2%'
                     },
@@ -1791,9 +1626,9 @@ function initializeUI() {
             pvPoints.push({ x: volumeM3, y: parsed.pressureReadings[i] });
         }
 
-        // Keep only last 250 points (reduced for better performance)
-        if (pvPoints.length > 250) {
-            pvPoints = pvPoints.slice(pvPoints.length - 250);
+        // Keep only last pvMaxPoints points
+        if (pvPoints.length > pvMaxPoints) {
+            pvPoints = pvPoints.slice(pvPoints.length - pvMaxPoints);
         }
 
         // Always update chart data, even if we don't redraw immediately
@@ -1975,28 +1810,21 @@ function initializeUI() {
 
     // Function to clear all data
     function clearData() {
-        // Clear the data arrays
-        temperatureData = [];
-        timeLabels = [];
-        dataPointCounter = 0;
+        resetChartsAndData();
 
-        // Update the chart if present
-        if (chart) {
-            chart.update();
+        if (currentTemp) {
+            currentTemp.textContent = '--°C';
+            currentTemp.style.color = '#6c757d';
         }
 
-        // Update the UI
-        dataCount.textContent = '0';
-        currentTemp.textContent = '--°C';
-        currentTemp.style.color = '#6c757d';
-
-        // Stop monitoring if it's running
         if (monitoringInterval) {
             stopMonitoring();
         }
 
-        statusText.textContent = 'Ready';
-        statusText.style.color = '#6c757d';
+        if (statusText) {
+            statusText.textContent = 'Ready';
+            statusText.style.color = '#6c757d';
+        }
     }
 
     // Function to generate sample data for demonstration
@@ -2112,10 +1940,9 @@ function initializeUI() {
                     // Check if RPM timeout has occurred (4 seconds without new value)
                     checkRpmTimeout();
                     if (latestTemp !== null && latestTemp > 0 && tempValueEl) {
-                        tempValueEl.textContent = String(latestTemp);
+                        tempValueEl.textContent = latestTemp.toFixed(1);
                     } else if (lastValidTemperature !== null && tempValueEl) {
-                        // Keep showing last valid temperature instead of 0
-                        tempValueEl.textContent = String(lastValidTemperature);
+                        tempValueEl.textContent = lastValidTemperature.toFixed(1);
                     }
                     if (latestPower !== null && latestPower > 0 && powerValueEl) {
                         powerValueEl.textContent = latestPower.toFixed(2);
@@ -2360,15 +2187,19 @@ function initializeUI() {
             elapsedSeconds = 0;
         }
 
-        // Push common X-axis value (time in seconds)
-        timeSeriesLabels.push(elapsedSeconds.toFixed(1)); // simple rounded seconds
+        // Push real-time clock stamp for X-axis
+        var now = new Date();
+        var hh = String(now.getHours()).padStart(2, '0');
+        var mm = String(now.getMinutes()).padStart(2, '0');
+        var ss = String(now.getSeconds()).padStart(2, '0');
+        timeSeriesLabels.push(hh + ':' + mm + ':' + ss);
 
         // Temperature value for this packet
         var tempValue = null;
         if (typeof parsedData.heaterTemperature === 'number' && parsedData.heaterTemperature > 0) {
-            tempValue = parsedData.heaterTemperature;
+            tempValue = parseFloat(parsedData.heaterTemperature.toFixed(1));
         } else if (lastValidTemperature !== null) {
-            tempValue = lastValidTemperature;
+            tempValue = parseFloat(lastValidTemperature.toFixed(1));
         }
         timeSeriesTempValues.push(tempValue);
 
@@ -2381,8 +2212,8 @@ function initializeUI() {
         }
         timeSeriesRpmValues.push(rpmValue);
 
-        // Keep only the last 300 points so the graph stays reasonable
-        var maxPoints = 300;
+        // Keep 180 seconds of data (2 s/sample → 90 points)
+        var maxPoints = 90;
         if (timeSeriesLabels.length > maxPoints) {
             timeSeriesLabels.shift();
         }
@@ -2446,7 +2277,6 @@ function initializeUI() {
                     if (auxValue) {
                         auxValue.value = 0;
                     }
-                    updateAuxTip();
                 }
                 // Send Aux Output 0 command immediately
                 if (window.electronAPI && window.electronAPI.setAux) {
@@ -2490,7 +2320,7 @@ function initializeUI() {
             if (stopButton) stopButton.disabled = true;
 
             if (status.error) {
-                console.error('Connection error:', status.error);
+                console.warn('Connection error:', status.error);
                 statusText.textContent = 'Auto-connect failed - ' + status.error;
                 statusText.style.color = '#dc3545';
             }
@@ -2510,20 +2340,12 @@ function initializeUI() {
                 return;
             }
 
+            const base = 'badge badge-sm font-bold tracking-wider uppercase';
             if (status.connected) {
-                // System is ONLINE
-                systemStatusBanner.className = 'system-status-banner online';
+                systemStatusBanner.className = base + ' badge-success';
                 statusTextEl.textContent = 'SYSTEM ONLINE';
-
-                // Centered banner shows only the main text
-            } else if (status.error) {
-                // System is OFFLINE with error
-                systemStatusBanner.className = 'system-status-banner offline';
-                statusTextEl.textContent = 'SYSTEM OFFLINE';
             } else {
-                // System is CONNECTING/SEARCHING
-                // Show OFFLINE until device is actually connected (no 'connecting' text)
-                systemStatusBanner.className = 'system-status-banner offline';
+                systemStatusBanner.className = base + ' badge-error';
                 statusTextEl.textContent = 'SYSTEM OFFLINE';
             }
         } catch (e) {
